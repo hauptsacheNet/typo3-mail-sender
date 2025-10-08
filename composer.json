@@ -1,0 +1,61 @@
+{
+    "name": "hn/typo3-mail-sender",
+    "type": "typo3-cms-extension",
+    "description": "TYPO3 extension for configuring and validating email sender addresses with DNS and deliverability checks",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://github.com/hauptsacheNet/typo3-mail-sender",
+    "authors": [
+        {
+            "name": "Marco Pfeiffer",
+            "email": "marco@hauptsache.net"
+        }
+    ],
+    "require": {
+        "php": "^8.1.0",
+        "typo3/cms-backend": "^13.4",
+        "typo3/cms-core": "^13.4"
+    },
+    "require-dev": {
+        "typo3/testing-framework": "^9.2.0",
+        "typo3/cms-install": "^13.4",
+        "brianium/paratest": "^7.11"
+    },
+    "autoload": {
+        "psr-4": {
+            "Hn\\MailSender\\": "Classes/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Hn\\MailSender\\Tests\\": "Tests/"
+        }
+    },
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "mail_sender"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "bash Build/setup-typo3.sh"
+        ],
+        "post-install-cmd": [
+            "@setup"
+        ],
+        "post-update-cmd": [
+            "@setup"
+        ],
+        "test": [
+            "@test:functional"
+        ],
+        "test:functional": [
+            "paratest -c phpunit.xml.dist"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
+        }
+    }
+}

@@ -1,0 +1,13 @@
+# files typo3 creates when installed
+/config
+/public
+/var
+/vendor
+
+# a lock file does not make sense for a library
+/composer.lock
+
+# other
+*.local
+.DS_Store
+.idea

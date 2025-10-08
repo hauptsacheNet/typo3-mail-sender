@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<xliff version="1.0">
+	<file source-language="en" datatype="plaintext" original="EXT:mail_sender/Resources/Private/Language/locallang_db.xlf" date="2025-10-06T16:00:00Z" product-name="mail_sender">
+		<header/>
+		<body>
+			<trans-unit id="tx_mailsender_address">
+				<source>Mail Sender Address</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.sender_address">
+				<source>Sender Email Address</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.sender_name">
+				<source>Sender Name</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_status">
+				<source>Validation Status</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_status.pending">
+				<source>Pending</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_status.valid">
+				<source>Valid</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_status.invalid">
+				<source>Invalid</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_last_check">
+				<source>Last Validation Check</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_result">
+				<source>Validation Result (JSON)</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.tabs.validation">
+				<source>Validation</source>
+			</trans-unit>
+		</body>
+	</file>
+</xliff>

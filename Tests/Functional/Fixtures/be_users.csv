@@ -1,0 +1,3 @@
+"be_users"
+,"uid","pid","username","password","admin","deleted","tstamp","crdate"
+,1,0,"admin","$argon2i$v=19$m=65536$NnFTRjRYRmRKSVlmNWVKZg$pC1yuMPjan+8d+YY7s/6Wlj9Y7Sb7fJpmPzDGpc6Lqc",1,0,1609459200,1609459200

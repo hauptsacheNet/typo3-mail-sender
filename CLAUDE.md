@@ -1,0 +1,1 @@
+- Use `composer test` to run the tests
