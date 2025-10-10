@@ -1,0 +1,28 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  # Auto-register all classes in Classes/ directory
+  Hn\MailSender\:
+    resource: '../Classes/*'
+    exclude: '../Classes/Domain/Model/*'
+
+  # Autoconfigure validators with tag
+  _instanceof:
+    Hn\MailSender\Validation\SenderAddressValidatorInterface:
+      tags: ['mail_sender.validator']
+
+  # Validation Service with tagged iterator
+  Hn\MailSender\Service\ValidationService:
+    public: true
+    arguments:
+      $validators: !tagged_iterator mail_sender.validator
+
+  # Console Command
+  Hn\MailSender\Command\ValidateSenderCommand:
+    tags:
+      - name: 'console.command'
+        command: 'mail:sender:validate'
+        description: 'Validate email sender addresses'

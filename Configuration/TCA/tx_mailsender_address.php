@@ -84,11 +84,8 @@ return [
             'exclude' => true,
             'label' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.validation_result',
             'config' => [
-                'type' => 'text',
-                'cols' => 40,
-                'rows' => 15,
-                'readOnly' => true,
-                'enableRichtext' => false,
+                'type' => 'user',
+                'renderType' => 'validationResult',
             ],
         ],
     ],

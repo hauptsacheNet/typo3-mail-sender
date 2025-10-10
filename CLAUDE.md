@@ -1,1 +1,2 @@
+- This project is about a TYPO3 extension that validates email sender addresses
 - Use `composer test` to run the tests

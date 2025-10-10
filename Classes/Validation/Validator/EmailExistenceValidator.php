@@ -1,0 +1,202 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Hn\MailSender\Validation\Validator;
+
+use Hn\MailSender\Validation\SenderAddressValidatorInterface;
+use Hn\MailSender\Validation\ValueObject\ValidationResult;
+
+/**
+ * Email Existence Validator
+ *
+ * Validates email existence by connecting to the mail server via SMTP.
+ * This validator uses RCPT TO command to verify if the email address exists.
+ *
+ * Note: Many mail servers have disabled VRFY and may not respond accurately
+ * to RCPT TO checks, so results should be treated as hints rather than definitive.
+ */
+class EmailExistenceValidator implements SenderAddressValidatorInterface
+{
+    private const TIMEOUT_SECONDS = 10;
+    private const SMTP_PORT = 25;
+
+    public function validate(string $email, string $domain): ValidationResult
+    {
+        $details = [];
+        $warnings = [];
+
+        // Get MX records to find mail server
+        $mxRecords = @dns_get_record($domain, DNS_MX);
+        if ($mxRecords === false || empty($mxRecords)) {
+            return ValidationResult::warning(
+                'Cannot check email existence: No MX records found',
+                ['reason' => 'no_mx_records']
+            );
+        }
+
+        // Sort by priority (lowest first)
+        usort($mxRecords, fn($a, $b) => ($a['pri'] ?? 999) <=> ($b['pri'] ?? 999));
+
+        $details['mx_tested'] = $mxRecords[0]['target'] ?? 'unknown';
+
+        // Try to connect to the first MX server
+        $mxHost = $mxRecords[0]['target'] ?? null;
+        if ($mxHost === null) {
+            return ValidationResult::warning(
+                'Cannot check email existence: Invalid MX record',
+                ['reason' => 'invalid_mx_record']
+            );
+        }
+
+        try {
+            $smtpCheck = $this->checkSmtpServer($mxHost, $email);
+
+            if ($smtpCheck['connected']) {
+                $details['smtp_connected'] = true;
+                $details['smtp_response'] = $smtpCheck['response'] ?? '';
+
+                if ($smtpCheck['accepted']) {
+                    return ValidationResult::valid(
+                        'Email address accepted by mail server',
+                        $details
+                    );
+                }
+
+                if ($smtpCheck['uncertain']) {
+                    $warnings[] = 'Mail server did not provide definitive answer';
+                    return ValidationResult::warning(
+                        'Email existence uncertain: ' . ($smtpCheck['response'] ?? 'Server response unclear'),
+                        ['warnings' => $warnings, ...$details]
+                    );
+                }
+
+                return ValidationResult::invalid(
+                    'Email address rejected by mail server: ' . ($smtpCheck['response'] ?? 'Unknown reason'),
+                    ['smtp_rejected' => true, ...$details]
+                );
+            }
+
+            return ValidationResult::warning(
+                'Cannot check email existence: Unable to connect to mail server',
+                ['reason' => 'smtp_connection_failed', 'details' => $smtpCheck['error'] ?? 'Unknown error']
+            );
+        } catch (\Throwable $e) {
+            return ValidationResult::warning(
+                'Cannot check email existence: ' . $e->getMessage(),
+                ['exception' => get_class($e), 'reason' => 'smtp_check_error']
+            );
+        }
+    }
+
+    /**
+     * Check SMTP server for email acceptance
+     *
+     * @return array{connected: bool, accepted: bool, uncertain: bool, response?: string, error?: string}
+     */
+    private function checkSmtpServer(string $mxHost, string $email): array
+    {
+        $socket = @fsockopen($mxHost, self::SMTP_PORT, $errno, $errstr, self::TIMEOUT_SECONDS);
+
+        if ($socket === false) {
+            return [
+                'connected' => false,
+                'accepted' => false,
+                'uncertain' => false,
+                'error' => "Connection failed: $errstr ($errno)",
+            ];
+        }
+
+        stream_set_timeout($socket, self::TIMEOUT_SECONDS);
+
+        try {
+            // Read initial banner
+            $response = $this->readSmtpResponse($socket);
+            if (!str_starts_with($response, '220')) {
+                return [
+                    'connected' => false,
+                    'accepted' => false,
+                    'uncertain' => false,
+                    'response' => $response,
+                ];
+            }
+
+            // Send EHLO
+            fwrite($socket, "EHLO example.com\r\n");
+            $response = $this->readSmtpResponse($socket);
+            if (!str_starts_with($response, '250')) {
+                // Try HELO instead
+                fwrite($socket, "HELO example.com\r\n");
+                $response = $this->readSmtpResponse($socket);
+            }
+
+            // Send MAIL FROM
+            fwrite($socket, "MAIL FROM:<test@example.com>\r\n");
+            $response = $this->readSmtpResponse($socket);
+
+            // Send RCPT TO (actual test)
+            fwrite($socket, "RCPT TO:<$email>\r\n");
+            $response = $this->readSmtpResponse($socket);
+
+            // Send QUIT
+            fwrite($socket, "QUIT\r\n");
+            $this->readSmtpResponse($socket);
+
+            // Analyze RCPT TO response
+            if (str_starts_with($response, '250') || str_starts_with($response, '251')) {
+                return [
+                    'connected' => true,
+                    'accepted' => true,
+                    'uncertain' => false,
+                    'response' => $response,
+                ];
+            }
+
+            if (str_starts_with($response, '550') || str_starts_with($response, '551') || str_starts_with($response, '553')) {
+                return [
+                    'connected' => true,
+                    'accepted' => false,
+                    'uncertain' => false,
+                    'response' => $response,
+                ];
+            }
+
+            // Uncertain responses (greylisting, temporary failures, etc.)
+            return [
+                'connected' => true,
+                'accepted' => false,
+                'uncertain' => true,
+                'response' => $response,
+            ];
+        } finally {
+            fclose($socket);
+        }
+    }
+
+    /**
+     * Read SMTP server response
+     */
+    private function readSmtpResponse($socket): string
+    {
+        $response = '';
+        while ($line = fgets($socket, 515)) {
+            $response .= $line;
+            // Stop when we get a response that doesn't have a dash after the code
+            if (preg_match('/^\d{3} /', $line)) {
+                break;
+            }
+        }
+
+        return trim($response);
+    }
+
+    public function getName(): string
+    {
+        return 'Email Existence Validator';
+    }
+
+    public function getPriority(): int
+    {
+        return 20; // Run last, after syntax and DNS checks
+    }
+}
