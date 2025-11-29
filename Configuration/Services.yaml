@@ -20,9 +20,20 @@ services:
     arguments:
       $validators: !tagged_iterator mail_sender.validator
 
+  # Backend Module Controller
+  Hn\MailSender\Controller\MailSenderController:
+    public: true
+
   # Console Command
   Hn\MailSender\Command\ValidateSenderCommand:
     tags:
       - name: 'console.command'
         command: 'mail:sender:validate'
         description: 'Validate email sender addresses'
+
+  # Scheduler Task
+  Hn\MailSender\Task\ValidateSenderAddressesTask:
+    tags:
+      - name: 'scheduler.task'
+        title: 'Mail Sender: Validate All Addresses'
+        description: 'Validates all configured sender email addresses and updates their status'
