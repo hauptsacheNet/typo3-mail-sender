@@ -65,6 +65,7 @@ return [
                 'items' => [
                     ['label' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.validation_status.pending', 'value' => 'pending'],
                     ['label' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.validation_status.valid', 'value' => 'valid'],
+                    ['label' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.validation_status.warning', 'value' => 'warning'],
                     ['label' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.validation_status.invalid', 'value' => 'invalid'],
                 ],
                 'default' => 'pending',

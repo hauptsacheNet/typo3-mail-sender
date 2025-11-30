@@ -21,6 +21,9 @@
 			<trans-unit id="tx_mailsender_address.validation_status.valid">
 				<source>Valid</source>
 			</trans-unit>
+			<trans-unit id="tx_mailsender_address.validation_status.warning">
+				<source>Warning</source>
+			</trans-unit>
 			<trans-unit id="tx_mailsender_address.validation_status.invalid">
 				<source>Invalid</source>
 			</trans-unit>

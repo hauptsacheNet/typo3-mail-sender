@@ -52,7 +52,8 @@ class ValidationServiceTest extends AbstractFunctionalTest
 
         // Check that all validators ran
         self::assertArrayHasKey('Email Syntax Validator', $results['validators']);
-        self::assertArrayHasKey('DNS Validator', $results['validators']);
+        self::assertArrayHasKey('MX Validator', $results['validators']);
+        self::assertArrayHasKey('DMARC Validator', $results['validators']);
         self::assertArrayHasKey('Email Existence Validator', $results['validators']);
 
         // Email syntax should always pass for valid syntax
@@ -61,9 +62,9 @@ class ValidationServiceTest extends AbstractFunctionalTest
             $results['validators']['Email Syntax Validator']['status']
         );
 
-        // DNS should find MX records for hauptsache.net
+        // MX should find MX records for hauptsache.net
         self::assertContains(
-            $results['validators']['DNS Validator']['status'],
+            $results['validators']['MX Validator']['status'],
             [ValidationResult::STATUS_VALID, ValidationResult::STATUS_WARNING]
         );
 
@@ -118,10 +119,10 @@ class ValidationServiceTest extends AbstractFunctionalTest
         // Overall status should be invalid due to missing MX records
         self::assertSame(ValidationResult::STATUS_INVALID, $results['status']);
 
-        // DNS validator should fail
+        // MX validator should fail
         self::assertSame(
             ValidationResult::STATUS_INVALID,
-            $results['validators']['DNS Validator']['status']
+            $results['validators']['MX Validator']['status']
         );
     }
 
@@ -139,9 +140,11 @@ class ValidationServiceTest extends AbstractFunctionalTest
             $previousPriority = $priority;
         }
 
-        // Verify order: Syntax (5) < DNS (10) < Existence (20)
+        // Verify order: Syntax (5) < MX (10) < DMARC (11) < SPF (12) < Existence (20)
         self::assertSame(5, $validators[0]->getPriority()); // Email Syntax Validator
-        self::assertSame(10, $validators[1]->getPriority()); // DNS Validator
-        self::assertSame(20, $validators[2]->getPriority()); // Email Existence Validator
+        self::assertSame(10, $validators[1]->getPriority()); // MX Validator
+        self::assertSame(11, $validators[2]->getPriority()); // DMARC Validator
+        self::assertSame(12, $validators[3]->getPriority()); // SPF Validator
+        self::assertSame(20, $validators[4]->getPriority()); // Email Existence Validator
     }
 }

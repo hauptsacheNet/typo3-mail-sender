@@ -159,7 +159,7 @@ class ValidationResultElement extends AbstractFormElement
         $detailsHtml = '';
         if (!empty($details)) {
             $detailsId = 'details-' . md5($name);
-            $detailsJson = htmlspecialchars(json_encode($details, JSON_PRETTY_PRINT));
+            $detailsJson = htmlspecialchars(json_encode($details, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             $detailsHtml = sprintf(
                 '<details class="validator-details" id="%s">
                     <summary>Show details</summary>
