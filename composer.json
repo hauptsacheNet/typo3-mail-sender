@@ -16,7 +16,8 @@
         "typo3/cms-core": "^13.4"
     },
     "suggest": {
-        "typo3/cms-scheduler": "For automated periodic validation of sender addresses"
+        "typo3/cms-scheduler": "For automated periodic validation of sender addresses",
+        "typo3/cms-form": "For form finisher integration with validated sender address dropdown"
     },
     "require-dev": {
         "typo3/testing-framework": "^9.2.0",

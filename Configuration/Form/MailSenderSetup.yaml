@@ -1,0 +1,56 @@
+TYPO3:
+  CMS:
+    Form:
+      prototypes:
+        standard:
+          formEditor:
+            # Add our extension's partials to the form editor's partial root paths
+            formEditorFluidConfiguration:
+              partialRootPaths:
+                100: 'EXT:mail_sender/Resources/Private/Backend/Partials/FormEditor/'
+            # Register the custom partial for SenderAddressEditor
+            formEditorPartials:
+              Inspector-SenderAddressEditor: 'Inspector/SenderAddressEditor'
+
+          formElementsDefinition:
+            Form:
+              formEditor:
+                propertyCollections:
+                  finishers:
+                    # Override EmailToSender finisher (index 10)
+                    10:
+                      editors:
+                        500:
+                          identifier: senderAddress
+                          templateName: Inspector-SenderAddressEditor
+                          propertyPath: options.senderAddress
+                    # Override EmailToReceiver finisher (index 20)
+                    20:
+                      editors:
+                        500:
+                          identifier: senderAddress
+                          templateName: Inspector-SenderAddressEditor
+                          propertyPath: options.senderAddress
+
+          # Override FormEngine configuration for finishers
+          finishersDefinition:
+            EmailToSender:
+              FormEngine:
+                elements:
+                  senderAddress:
+                    label: tt_content.finishersDefinition.EmailToSender.senderAddress.label
+                    config:
+                      type: select
+                      renderType: selectSingle
+                      itemsProcFunc: Hn\MailSender\Form\FormEngine\SenderAddressItemsProcFunc->getItems
+                      required: true
+            EmailToReceiver:
+              FormEngine:
+                elements:
+                  senderAddress:
+                    label: tt_content.finishersDefinition.EmailToReceiver.senderAddress.label
+                    config:
+                      type: select
+                      renderType: selectSingle
+                      itemsProcFunc: Hn\MailSender\Form\FormEngine\SenderAddressItemsProcFunc->getItems
+                      required: true

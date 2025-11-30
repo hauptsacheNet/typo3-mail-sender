@@ -1,0 +1,8 @@
+# Register mail_sender form configuration for both frontend and backend
+module.tx_form.settings.yamlConfigurations {
+    100 = EXT:mail_sender/Configuration/Form/MailSenderSetup.yaml
+}
+
+plugin.tx_form.settings.yamlConfigurations {
+    100 = EXT:mail_sender/Configuration/Form/MailSenderSetup.yaml
+}

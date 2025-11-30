@@ -12,3 +12,8 @@ $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1734000000] = [
     'priority' => 40,
     'class' => \Hn\MailSender\Form\Element\ValidationResultElement::class,
 ];
+
+// Register Fluid namespace for mail_sender ViewHelpers
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['fluid']['namespaces']['mailsender'] = [
+    'Hn\\MailSender\\ViewHelpers',
+];
