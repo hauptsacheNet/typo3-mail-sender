@@ -140,11 +140,12 @@ class ValidationServiceTest extends AbstractFunctionalTest
             $previousPriority = $priority;
         }
 
-        // Verify order: Syntax (5) < MX (10) < DMARC (11) < SPF (12) < Existence (20)
+        // Verify order: Syntax (5) < MX (10) < DMARC (11) < SPF (12) < DKIM (13) < Existence (20)
         self::assertSame(5, $validators[0]->getPriority()); // Email Syntax Validator
         self::assertSame(10, $validators[1]->getPriority()); // MX Validator
         self::assertSame(11, $validators[2]->getPriority()); // DMARC Validator
         self::assertSame(12, $validators[3]->getPriority()); // SPF Validator
-        self::assertSame(20, $validators[4]->getPriority()); // Email Existence Validator
+        self::assertSame(13, $validators[4]->getPriority()); // DKIM Validator
+        self::assertSame(20, $validators[5]->getPriority()); // Email Existence Validator
     }
 }

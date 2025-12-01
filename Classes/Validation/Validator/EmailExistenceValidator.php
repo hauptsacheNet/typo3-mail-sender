@@ -21,7 +21,7 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
     private const TIMEOUT_SECONDS = 10;
     private const SMTP_PORT = 25;
 
-    public function validate(string $email, string $domain): ValidationResult
+    public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult
     {
         $details = [];
         $warnings = [];

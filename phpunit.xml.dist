@@ -19,6 +19,9 @@
          executionOrder="default"
 >
     <testsuites>
+        <testsuite name="Unit Tests">
+            <directory suffix="Test.php">Tests/Unit/</directory>
+        </testsuite>
         <testsuite name="Functional Tests">
             <directory suffix="Test.php">Tests/Functional/</directory>
             <exclude>Tests/Functional/AbstractFunctionalTest.php</exclude>

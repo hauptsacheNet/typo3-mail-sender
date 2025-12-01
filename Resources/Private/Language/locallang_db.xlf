@@ -36,6 +36,12 @@
 			<trans-unit id="tx_mailsender_address.tabs.validation">
 				<source>Validation</source>
 			</trans-unit>
+			<trans-unit id="tx_mailsender_address.eml_file">
+				<source>Test Email File (EML)</source>
+			</trans-unit>
+			<trans-unit id="tx_mailsender_address.eml_file.description">
+				<source>Upload a received test email (.eml file) to validate SPF, DKIM and DMARC using real authentication results from the receiving mail server.</source>
+			</trans-unit>
 		</body>
 	</file>
 </xliff>

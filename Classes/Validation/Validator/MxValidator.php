@@ -15,7 +15,7 @@ use Hn\MailSender\Validation\ValueObject\ValidationResult;
  */
 class MxValidator implements SenderAddressValidatorInterface
 {
-    public function validate(string $email, string $domain): ValidationResult
+    public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult
     {
         $mxRecords = @dns_get_record($domain, DNS_MX);
 

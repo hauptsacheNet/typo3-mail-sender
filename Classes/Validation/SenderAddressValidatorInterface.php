@@ -19,9 +19,10 @@ interface SenderAddressValidatorInterface
      *
      * @param string $email The full email address to validate
      * @param string $domain The domain part of the email address
+     * @param array|null $emlData Parsed EML data from EmlParserService (if available)
      * @return ValidationResult The validation result
      */
-    public function validate(string $email, string $domain): ValidationResult;
+    public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult;
 
     /**
      * Get the validator name for display and logging

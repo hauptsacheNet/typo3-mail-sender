@@ -28,14 +28,96 @@ class SpfValidator implements SenderAddressValidatorInterface
     ) {
     }
 
-    public function validate(string $email, string $domain): ValidationResult
+    public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult
     {
-        // Check if SPF library is available
-        if (!$this->isSpfLibraryAvailable()) {
-            return $this->validateBasicSpfRecord($domain);
+        // Always fetch current SPF record for drift detection
+        $currentSpfRecord = $this->fetchSpfRecord($domain);
+
+        // Get DNS-based validation result
+        $dnsResult = $this->isSpfLibraryAvailable()
+            ? $this->validateWithLibrary($domain)
+            : $this->validateBasicSpfRecord($domain);
+
+        // Check for drift by comparing with previous validation
+        $previousRecord = $emlData['previous_validation']['SPF Validator']['spf_record'] ?? null;
+        $dnsChanged = $previousRecord !== null && $previousRecord !== $currentSpfRecord;
+
+        // If EML data with SPF result is available, combine with DNS result
+        if ($emlData !== null) {
+            return $this->validateWithEmlAndDns($emlData, $domain, $currentSpfRecord, $dnsResult, $dnsChanged);
         }
 
-        return $this->validateWithLibrary($domain);
+        // No EML, return DNS-only result
+        return $dnsResult;
+    }
+
+    /**
+     * Validate using both EML Authentication-Results and current DNS state
+     */
+    private function validateWithEmlAndDns(
+        array $emlData,
+        string $domain,
+        ?string $currentSpfRecord,
+        ValidationResult $dnsResult,
+        bool $dnsChanged
+    ): ValidationResult {
+        $authResults = $emlData['authentication_results'] ?? [];
+        $spfResult = $authResults['spf'] ?? null;
+
+        $details = [
+            'spf_record' => $currentSpfRecord,
+            'dns_result' => $dnsResult->getStatus(),
+            'dns_message' => $dnsResult->getMessage(),
+            'dns_changed' => $dnsChanged,
+            'eml_file_hash' => $emlData['file_hash'] ?? '',
+        ];
+
+        // No SPF result in EML, fall back to DNS validation
+        if ($spfResult === null) {
+            return $dnsResult;
+        }
+
+        $emlSpfResult = strtolower($spfResult['result'] ?? '');
+        $details['eml_result'] = $emlSpfResult;
+        $details['spf_details'] = $spfResult['details'] ?? [];
+
+        // Handle different EML results
+        if ($emlSpfResult === 'pass') {
+            if ($dnsChanged) {
+                return ValidationResult::warning(
+                    'SPF passed in test email, but DNS record has changed',
+                    [
+                        'warnings' => ['SPF record changed since test email was uploaded. Upload new test email to verify current configuration.'],
+                        'previous_spf_record' => $emlData['previous_validation']['SPF Validator']['spf_record'] ?? null,
+                        ...$details,
+                    ]
+                );
+            }
+            return ValidationResult::valid(
+                'SPF authentication passed (verified from received email)',
+                $details
+            );
+        }
+
+        if (in_array($emlSpfResult, ['fail', 'hardfail'], true)) {
+            return ValidationResult::invalid(
+                'SPF authentication failed (verified from received email)',
+                ['errors' => ['SPF check failed: ' . $emlSpfResult], ...$details]
+            );
+        }
+
+        if ($emlSpfResult === 'softfail') {
+            return ValidationResult::warning(
+                'SPF soft fail - emails may be marked as suspicious',
+                ['warnings' => ['SPF softfail - sender may not be authorized'], ...$details]
+            );
+        }
+
+        // neutral, none, temperror, permerror, or unknown
+        return ValidationResult::warning(
+            'SPF result: ' . $emlSpfResult,
+            ['warnings' => ['SPF returned ' . $emlSpfResult], ...$details]
+        );
     }
 
     /**
@@ -166,7 +248,7 @@ class SpfValidator implements SenderAddressValidatorInterface
     /**
      * Fetch the SPF record for a domain
      */
-    private function fetchSpfRecord(string $domain): ?string
+    protected function fetchSpfRecord(string $domain): ?string
     {
         $txtRecords = @dns_get_record($domain, DNS_TXT);
 

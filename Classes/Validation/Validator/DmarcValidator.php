@@ -23,28 +23,119 @@ use Hn\MailSender\Validation\ValueObject\ValidationResult;
  */
 class DmarcValidator implements SenderAddressValidatorInterface
 {
-    public function validate(string $email, string $domain): ValidationResult
+    public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult
     {
+        // Always fetch current DMARC record for drift detection
         $dmarcDomain = '_dmarc.' . $domain;
-        $txtRecords = @dns_get_record($dmarcDomain, DNS_TXT);
+        $currentDmarcRecord = $this->fetchDmarcRecord($dmarcDomain);
 
-        if ($txtRecords === false) {
-            return ValidationResult::warning(
-                'DMARC validation limited: Could not query DNS records',
-                ['warnings' => ['DNS lookup failed for DMARC record']]
-            );
+        // Get DNS-based validation result
+        $dnsResult = $this->validateDnsRecord($domain, $dmarcDomain, $currentDmarcRecord);
+
+        // Check for drift by comparing with previous validation
+        $previousRecord = $emlData['previous_validation']['DMARC Validator']['dmarc_record'] ?? null;
+        $dnsChanged = $previousRecord !== null && $previousRecord !== $currentDmarcRecord;
+
+        // If EML data with DMARC result is available, combine with DNS result
+        if ($emlData !== null) {
+            return $this->validateWithEmlAndDns($emlData, $domain, $currentDmarcRecord, $dnsResult, $dnsChanged);
         }
 
-        // Find DMARC record
-        $dmarcRecord = null;
+        // No EML, return DNS-only result
+        return $dnsResult;
+    }
+
+    /**
+     * Fetch DMARC record from DNS
+     */
+    protected function fetchDmarcRecord(string $dmarcDomain): ?string
+    {
+        $txtRecords = @dns_get_record($dmarcDomain, DNS_TXT);
+        if ($txtRecords === false) {
+            return null;
+        }
+
         foreach ($txtRecords as $record) {
             $txt = $record['txt'] ?? '';
             if (str_starts_with($txt, 'v=DMARC1')) {
-                $dmarcRecord = $txt;
-                break;
+                return $txt;
             }
         }
 
+        return null;
+    }
+
+    /**
+     * Validate using both EML Authentication-Results and current DNS state
+     */
+    private function validateWithEmlAndDns(
+        array $emlData,
+        string $domain,
+        ?string $currentDmarcRecord,
+        ValidationResult $dnsResult,
+        bool $dnsChanged
+    ): ValidationResult {
+        $authResults = $emlData['authentication_results'] ?? [];
+        $dmarcResult = $authResults['dmarc'] ?? null;
+
+        $details = [
+            'dmarc_record' => $currentDmarcRecord,
+            'dns_result' => $dnsResult->getStatus(),
+            'dns_message' => $dnsResult->getMessage(),
+            'dns_changed' => $dnsChanged,
+            'eml_file_hash' => $emlData['file_hash'] ?? '',
+        ];
+
+        if ($currentDmarcRecord !== null) {
+            $details['parsed'] = $this->parseDmarcRecord($currentDmarcRecord);
+        }
+
+        // No DMARC result in EML, fall back to DNS validation
+        if ($dmarcResult === null) {
+            return $dnsResult;
+        }
+
+        $emlDmarcResult = strtolower($dmarcResult['result'] ?? '');
+        $details['eml_result'] = $emlDmarcResult;
+        $details['dmarc_details'] = $dmarcResult['details'] ?? [];
+
+        // Handle different EML results
+        if ($emlDmarcResult === 'pass') {
+            if ($dnsChanged) {
+                return ValidationResult::warning(
+                    'DMARC passed in test email, but DNS record has changed',
+                    [
+                        'warnings' => ['DMARC record changed since test email was uploaded. Upload new test email to verify current configuration.'],
+                        'previous_dmarc_record' => $emlData['previous_validation']['DMARC Validator']['dmarc_record'] ?? null,
+                        ...$details,
+                    ]
+                );
+            }
+            return ValidationResult::valid(
+                'DMARC authentication passed (verified from received email)',
+                $details
+            );
+        }
+
+        if ($emlDmarcResult === 'fail') {
+            return ValidationResult::invalid(
+                'DMARC authentication failed (verified from received email)',
+                ['errors' => ['DMARC check failed'], ...$details]
+            );
+        }
+
+        // none, temperror, permerror, or unknown
+        return ValidationResult::warning(
+            'DMARC result: ' . $emlDmarcResult,
+            ['warnings' => ['DMARC returned ' . $emlDmarcResult], ...$details]
+        );
+    }
+
+    /**
+     * Validate DMARC from DNS record
+     */
+    private function validateDnsRecord(string $domain, string $dmarcDomain, ?string $dmarcRecord): ValidationResult
+    {
         if ($dmarcRecord === null) {
             return ValidationResult::warning(
                 'No DMARC record found (recommended for email authentication)',

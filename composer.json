@@ -14,7 +14,8 @@
         "php": "^8.1.0",
         "typo3/cms-backend": "^13.4",
         "typo3/cms-core": "^13.4",
-        "mika56/spfcheck": "^3.0"
+        "mika56/spfcheck": "^3.0",
+        "zbateson/mail-mime-parser": "^3.0"
     },
     "suggest": {
         "typo3/cms-scheduler": "For automated periodic validation of sender addresses",

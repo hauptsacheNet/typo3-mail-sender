@@ -15,7 +15,7 @@ use Hn\MailSender\Validation\ValueObject\ValidationResult;
  */
 class EmailSyntaxValidator implements SenderAddressValidatorInterface
 {
-    public function validate(string $email, string $domain): ValidationResult
+    public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult
     {
         $details = [];
         $errors = [];

@@ -14,6 +14,7 @@ CREATE TABLE tx_mailsender_address (
 	validation_status varchar(50) DEFAULT 'pending' NOT NULL,
 	validation_last_check int(11) unsigned DEFAULT '0' NOT NULL,
 	validation_result text,
+	eml_file int(11) unsigned DEFAULT '0' NOT NULL,
 
 	PRIMARY KEY (uid),
 	KEY parent (pid),

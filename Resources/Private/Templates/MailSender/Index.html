@@ -69,6 +69,7 @@
                     <th>Email Address</th>
                     <th>Name</th>
                     <th>Status</th>
+                    <th>EML</th>
                     <th>Last Validated</th>
                     <th>Actions</th>
                 </tr>
@@ -101,6 +102,20 @@
                                     <span class="badge badge-secondary">Pending</span>
                                 </f:defaultCase>
                             </f:switch>
+                        </td>
+                        <td>
+                            <f:if condition="{sender.eml_file}">
+                                <f:then>
+                                    <span class="badge badge-success" title="Test email uploaded for enhanced validation">
+                                        <core:icon identifier="actions-check" size="small" />
+                                    </span>
+                                </f:then>
+                                <f:else>
+                                    <span class="badge badge-secondary" title="Upload test email for DKIM validation">
+                                        <core:icon identifier="actions-upload" size="small" />
+                                    </span>
+                                </f:else>
+                            </f:if>
                         </td>
                         <td>
                             <f:if condition="{sender.validation_last_check}">
@@ -140,7 +155,7 @@
                 </f:for>
                 <f:if condition="{senderAddresses -> f:count()} == 0">
                     <tr>
-                        <td colspan="6" class="text-center text-muted">
+                        <td colspan="7" class="text-center text-muted">
                             No sender addresses configured yet.
                             <a href="{newUrl}">Add your first sender address</a>
                         </td>

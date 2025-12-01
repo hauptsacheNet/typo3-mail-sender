@@ -89,6 +89,16 @@ return [
                 'renderType' => 'validationResult',
             ],
         ],
+        'eml_file' => [
+            'exclude' => true,
+            'label' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.eml_file',
+            'description' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.eml_file.description',
+            'config' => [
+                'type' => 'file',
+                'allowed' => 'eml',
+                'maxitems' => 1,
+            ],
+        ],
     ],
     'types' => [
         '0' => [
@@ -96,7 +106,7 @@ return [
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:general,
                     sender_address, sender_name, hidden,
                 --div--;LLL:EXT:mail_sender/Resources/Private/Language/locallang_db.xlf:tx_mailsender_address.tabs.validation,
-                    validation_status, validation_last_check, validation_result,
+                    validation_status, validation_last_check, eml_file, validation_result,
             ',
         ],
     ],
