@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Hn\MailSender\Controller;
 
+use Hn\MailSender\Service\DefaultSenderImportService;
 use Hn\MailSender\Service\ValidationService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -33,6 +34,7 @@ class MailSenderController
         private readonly ValidationService $validationService,
         private readonly FlashMessageService $flashMessageService,
         private readonly ConnectionPool $connectionPool,
+        private readonly DefaultSenderImportService $defaultSenderImportService,
     ) {
     }
 
@@ -41,6 +43,9 @@ class MailSenderController
      */
     public function indexAction(ServerRequestInterface $request): ResponseInterface
     {
+        // Ensure default sender from TYPO3 configuration exists
+        $this->defaultSenderImportService->ensureDefaultSenderExists();
+
         $moduleTemplate = $this->moduleTemplateFactory->create($request);
 
         // Set module title

@@ -37,3 +37,8 @@ services:
       - name: 'scheduler.task'
         title: 'Mail Sender: Validate All Addresses'
         description: 'Validates all configured sender email addresses and updates their status'
+
+  # Status Report Provider
+  Hn\MailSender\Report\MailSenderStatusProvider:
+    tags:
+      - name: 'reports.status'

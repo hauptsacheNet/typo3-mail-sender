@@ -81,4 +81,22 @@ class MailConfigurationProvider
     {
         return $GLOBALS['TYPO3_CONF_VARS']['MAIL'] ?? [];
     }
+
+    /**
+     * Get default mail from address
+     */
+    public function getDefaultMailFromAddress(): ?string
+    {
+        $address = $GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailFromAddress'] ?? '';
+        return $address !== '' ? $address : null;
+    }
+
+    /**
+     * Get default mail from name
+     */
+    public function getDefaultMailFromName(): ?string
+    {
+        $name = $GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailFromName'] ?? '';
+        return $name !== '' ? $name : null;
+    }
 }
