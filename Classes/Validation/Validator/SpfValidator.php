@@ -7,6 +7,9 @@ namespace Hn\MailSender\Validation\Validator;
 use Hn\MailSender\Configuration\MailConfigurationProvider;
 use Hn\MailSender\Validation\SenderAddressValidatorInterface;
 use Hn\MailSender\Validation\ValueObject\ValidationResult;
+use Mika56\SPFCheck\DNS\DNSRecordGetter;
+use Mika56\SPFCheck\Model\Result;
+use Mika56\SPFCheck\SPFCheck;
 
 /**
  * SPF Validator
@@ -20,10 +23,6 @@ use Hn\MailSender\Validation\ValueObject\ValidationResult;
  */
 class SpfValidator implements SenderAddressValidatorInterface
 {
-    private const SPF_LIBRARY_CLASS = 'Mika56\\SPFCheck\\SPFCheck';
-    private const SPF_DNS_GETTER_CLASS = 'Mika56\\SPFCheck\\DNS\\DNSRecordGetter';
-    private const SPF_RESULT_CLASS = 'Mika56\\SPFCheck\\Model\\Result';
-
     public function __construct(
         private readonly MailConfigurationProvider $configurationProvider
     ) {
@@ -44,9 +43,9 @@ class SpfValidator implements SenderAddressValidatorInterface
      */
     private function isSpfLibraryAvailable(): bool
     {
-        return class_exists(self::SPF_LIBRARY_CLASS)
-            && class_exists(self::SPF_DNS_GETTER_CLASS)
-            && class_exists(self::SPF_RESULT_CLASS);
+        return class_exists(SPFCheck::class)
+            && class_exists(DNSRecordGetter::class)
+            && class_exists(Result::class);
     }
 
     /**
@@ -78,12 +77,14 @@ class SpfValidator implements SenderAddressValidatorInterface
         $details['smtp_host'] = $smtpHost;
         $details['smtp_ips'] = $smtpIps;
 
-        // Create SPF checker
-        $dnsGetterClass = self::SPF_DNS_GETTER_CLASS;
-        $spfCheckClass = self::SPF_LIBRARY_CLASS;
-        $resultClass = self::SPF_RESULT_CLASS;
+        // Fetch and include the SPF record for display
+        $spfRecord = $this->fetchSpfRecord($domain);
+        if ($spfRecord !== null) {
+            $details['spf_record'] = $spfRecord;
+        }
 
-        $checker = new $spfCheckClass(new $dnsGetterClass());
+        // Create SPF checker
+        $checker = new SPFCheck(new DNSRecordGetter());
 
         // Check each SMTP IP against SPF
         $results = [];
@@ -93,12 +94,12 @@ class SpfValidator implements SenderAddressValidatorInterface
 
         foreach ($smtpIps as $ip) {
             $result = $checker->getIPStringResult($ip, $domain);
-            $results[$ip] = $result;
+            $results[$ip] = $this->getReadableResult($result);
 
-            if ($result === $resultClass::SHORT_PASS) {
+            if ($result === Result::SHORT_PASS) {
                 $anyPass = true;
                 $allFail = false;
-            } elseif ($result === $resultClass::SHORT_FAIL || $result === $resultClass::SHORT_SOFTFAIL) {
+            } elseif ($result === Result::SHORT_FAIL || $result === Result::SHORT_SOFTFAIL) {
                 $failingIps[] = $ip;
             } else {
                 // Neutral, None, Permerror, Temperror - not a fail
@@ -143,6 +144,44 @@ class SpfValidator implements SenderAddressValidatorInterface
             'SPF validation inconclusive: Could not confirm SMTP server authorization',
             ['warnings' => ['SPF check returned neutral or error result for all IPs'], ...$details]
         );
+    }
+
+    /**
+     * Convert short SPF result to human-readable name
+     */
+    private function getReadableResult(string $shortResult): string
+    {
+        return match ($shortResult) {
+            Result::SHORT_PASS => Result::PASS,
+            Result::SHORT_FAIL => Result::FAIL,
+            Result::SHORT_SOFTFAIL => Result::SOFTFAIL,
+            Result::SHORT_NEUTRAL => Result::NEUTRAL,
+            Result::SHORT_NONE => Result::NONE,
+            Result::SHORT_TEMPERROR => Result::TEMPERROR,
+            Result::SHORT_PERMERROR => Result::PERMERROR,
+            default => $shortResult,
+        };
+    }
+
+    /**
+     * Fetch the SPF record for a domain
+     */
+    private function fetchSpfRecord(string $domain): ?string
+    {
+        $txtRecords = @dns_get_record($domain, DNS_TXT);
+
+        if ($txtRecords === false) {
+            return null;
+        }
+
+        foreach ($txtRecords as $record) {
+            $txt = $record['txt'] ?? '';
+            if (str_starts_with($txt, 'v=spf1')) {
+                return $txt;
+            }
+        }
+
+        return null;
     }
 
     /**
