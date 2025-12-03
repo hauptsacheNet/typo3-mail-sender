@@ -1,7 +1,6 @@
 # TYPO3 Extension: Mail Sender Configuration
 
-> 🚧 **Work in Progress** - Currently in Phase 1 development
-> 🏆 **TYPO3 Community Budget Q4 2025 Winner**
+> 🚧 **Work in Progress**
 
 Configure and validate email sender addresses with DNS and deliverability checks for TYPO3 CMS.
 
@@ -11,23 +10,38 @@ This extension is proudly funded by the **TYPO3 Community Budget** for Q4 2025. 
 
 **Learn more:** [TYPO3 Community Budget Q4 2025 Winners](https://typo3.org/article/members-have-selected-four-ideas-to-be-funded-in-quarter-4-2025)
 
-## Current Features (Phase 1)
+## Current Features
 
+### Phase 1: Foundation ✅
 - ✅ Manage email sender addresses in the TYPO3 backend
 - ✅ Store sender email addresses and display names
 - ✅ Database structure for validation tracking
 - ✅ System record configuration (root-level records)
+- ✅ Integration in TYPO3's System Information/Status module
+- ✅ Custom TCA renderType for validation status display
+
+### Phase 2: Core Validation 🔄 (In Progress)
+- ✅ Email syntax validation
+- ✅ MX record verification
+- ✅ SPF record validation (checks SMTP transport configuration)
+- ✅ DMARC record analysis with recommendations
+- ✅ Email existence verification (SMTP check)
+- ✅ Validation result caching and display
+- ✅ CLI command for validation (`mail:sender:validate`)
+- 🔄 Tweaking email existence check failure handling
+
+### Phase 3: Integration & Adoption 🔄 (In Progress)
+- ✅ Integration with ext:form (validated sender dropdown)
+- 📋 TCA Extra Field API for third-party extensions
+- 📋 Documentation for extension developers
 
 ## Planned Features
 
-- 📋 **Phase 2:** DNS record validation (SPF, DMARC, MX)
-- 📋 **Phase 2:** Email deliverability checks
-- 📋 **Phase 3:** Integration with ext:form and other extensions
 - 📋 **Phase 4:** Import from existing configurations
 
 ## Roadmap
 
-### Phase 1: Foundation ✅ In Progress
+### Phase 1: Foundation ✅ Complete
 
 **Goal:** Basic extension structure and system integration
 
@@ -37,39 +51,42 @@ This extension is proudly funded by the **TYPO3 Community Budget** for Q4 2025. 
 - TCA configuration for backend management
 - Basic CRUD operations with functional tests
 - System record design (root-level, no translation)
+- Integration in TYPO3's System Information/Status module
+- Custom TCA renderType for validation status display
 
 **Deliverable:** Functional extension with sender address management in TYPO3 backend
 
 ---
 
-### Phase 2: Core Validation 📋 Planned
+### Phase 2: Core Validation 🔄 In Progress
 
 **Goal:** Implement email validation - the core functionality
 
 **Features:**
-- SPF record validation using `dns_get_record()`
-- MX record verification
-- DMARC record analysis
-- Email existence checks (similar to email-checker.net)
-- Test email functionality
-- Validation result caching for performance
-- Status reporting and visual display
-- Decision on synchronous vs. asynchronous validation (with timeouts)
+- ✅ Email syntax validation
+- ✅ SPF record validation using `dns_get_record()`
+- ✅ MX record verification
+- ✅ DMARC record analysis with recommendations
+- ✅ Email existence checks via SMTP verification
+- ✅ Validation result caching for performance
+- ✅ Status reporting and visual display
+- ✅ CLI command for validation
+- 🔄 Refinement of email existence check error handling
 
 **Deliverable:** Complete email validation system with DNS checks and status reporting
 
 ---
 
-### Phase 3: Integration & Adoption 📋 Planned
+### Phase 3: Integration & Adoption 🔄 In Progress
 
 **Goal:** Wide adoption through easy integration
 
 **Features:**
-- Integration with ext:form (replace freetext sender with validated dropdown)
-- TCA Extra Field API for third-party extensions (similar to `enableRichtext`)
-- Identify and integrate with popular TYPO3 extensions
-- Comprehensive documentation for extension developers
-- Integration testing and examples
+- ✅ Integration with ext:form (replace freetext sender with validated dropdown)
+- 📋 TCA Extra Field API for third-party extensions (similar to `enableRichtext`)
+- 📋 Identify and integrate with popular TYPO3 extensions
+- 📋 Comprehensive documentation for extension developers
+- 📋 Integration testing and examples
 
 **Deliverable:** API and integrations enabling easy adoption by extension developers
 
@@ -122,9 +139,9 @@ Each sender address record contains:
 - **Sender Name**: Display name for the sender
 - **Hidden**: Toggle to temporarily disable a sender address
 
-#### Validation Fields (Phase 2+)
+#### Validation Fields
 
-The following fields will be populated automatically by validation services in Phase 2:
+The following fields are populated automatically by validation services:
 
 - **Validation Status**: Current validation state (pending, valid, invalid)
 - **Last Validation Check**: Timestamp of the last validation
@@ -164,8 +181,8 @@ Please check the [GitHub repository](https://github.com/hauptsacheNet/typo3-mail
 
 ## Project Status
 
-**Current Phase:** Phase 1 (Foundation)
-**Next Milestone:** Phase 2 (Core Validation)
+**Current Phase:** Phase 2 (Core Validation) & Phase 3 (Integration)
+**Next Milestone:** Phase 4 (Polish & Import)
 **Target Release:** December 2025
 
 ## License
