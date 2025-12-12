@@ -6,6 +6,8 @@ namespace Hn\MailSender\Validation\Validator;
 
 use Hn\MailSender\Validation\SenderAddressValidatorInterface;
 use Hn\MailSender\Validation\ValueObject\ValidationResult;
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 
 /**
  * Email Existence Validator
@@ -20,9 +22,25 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
 {
     private const TIMEOUT_SECONDS = 10;
     private const SMTP_PORT = 25;
+    private const CACHE_LIFETIME = 86400; // 24 hours
+
+    private FrontendInterface $cache;
+
+    public function __construct(
+        CacheManager $cacheManager,
+    ) {
+        $this->cache = $cacheManager->getCache('hash');
+    }
 
     public function validate(string $email, string $domain, ?array $emlData = null): ValidationResult
     {
+        // Check cache first
+        $cacheKey = 'email_existence_' . hash('sha256', $email);
+        $cachedResult = $this->cache->get($cacheKey);
+        if ($cachedResult !== false) {
+            return unserialize($cachedResult, ['allowed_classes' => [ValidationResult::class]]);
+        }
+
         $details = [];
         $warnings = [];
 
@@ -57,42 +75,77 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
                 $details['smtp_response'] = $smtpCheck['response'] ?? '';
 
                 if ($smtpCheck['accepted']) {
-                    return ValidationResult::valid(
-                        'Email address accepted by mail server',
-                        $details
+                    return $this->cacheResult(
+                        $cacheKey,
+                        ValidationResult::valid(
+                            'Email address accepted by mail server',
+                            $details
+                        )
+                    );
+                }
+
+                // Check if our test sender was rejected (SPF/policy issue on our end)
+                if ($smtpCheck['mail_from_rejected'] ?? false) {
+                    return $this->cacheResult(
+                        $cacheKey,
+                        ValidationResult::warning(
+                            'Cannot verify email: Test sender rejected by mail server',
+                            ['reason' => 'mail_from_rejected', ...$details]
+                        )
                     );
                 }
 
                 if ($smtpCheck['uncertain']) {
                     $warnings[] = 'Mail server did not provide definitive answer';
-                    return ValidationResult::warning(
-                        'Email existence uncertain: ' . ($smtpCheck['response'] ?? 'Server response unclear'),
-                        ['warnings' => $warnings, ...$details]
+                    return $this->cacheResult(
+                        $cacheKey,
+                        ValidationResult::warning(
+                            'Email existence uncertain: ' . ($smtpCheck['response'] ?? 'Server response unclear'),
+                            ['warnings' => $warnings, ...$details]
+                        )
                     );
                 }
 
-                return ValidationResult::invalid(
-                    'Email address rejected by mail server: ' . ($smtpCheck['response'] ?? 'Unknown reason'),
-                    ['smtp_rejected' => true, ...$details]
+                return $this->cacheResult(
+                    $cacheKey,
+                    ValidationResult::invalid(
+                        'Email address rejected by mail server: ' . ($smtpCheck['response'] ?? 'Unknown reason'),
+                        ['smtp_rejected' => true, ...$details]
+                    )
                 );
             }
 
-            return ValidationResult::warning(
-                'Cannot check email existence: Unable to connect to mail server',
-                ['reason' => 'smtp_connection_failed', 'details' => $smtpCheck['error'] ?? 'Unknown error']
+            return $this->cacheResult(
+                $cacheKey,
+                ValidationResult::warning(
+                    'Cannot check email existence: Unable to connect to mail server',
+                    ['reason' => 'smtp_connection_failed', 'details' => $smtpCheck['error'] ?? 'Unknown error']
+                )
             );
         } catch (\Throwable $e) {
-            return ValidationResult::warning(
-                'Cannot check email existence: ' . $e->getMessage(),
-                ['exception' => get_class($e), 'reason' => 'smtp_check_error']
+            return $this->cacheResult(
+                $cacheKey,
+                ValidationResult::warning(
+                    'Cannot check email existence: ' . $e->getMessage(),
+                    ['exception' => get_class($e), 'reason' => 'smtp_check_error']
+                )
             );
         }
     }
 
     /**
+     * Cache and return a validation result
+     */
+    private function cacheResult(string $cacheKey, ValidationResult $result): ValidationResult
+    {
+        $this->cache->set($cacheKey, serialize($result), ['email_existence'], self::CACHE_LIFETIME);
+        return $result;
+    }
+
+    /**
      * Check SMTP server for email acceptance
      *
-     * @return array{connected: bool, accepted: bool, uncertain: bool, response?: string, error?: string}
+     * @return array{connected: bool, accepted: bool, uncertain: bool, mail_from_rejected?: bool, response?: string, error?: string}
      */
     private function checkSmtpServer(string $mxHost, string $email): array
     {
@@ -132,7 +185,18 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
 
             // Send MAIL FROM
             fwrite($socket, "MAIL FROM:<test@example.com>\r\n");
-            $response = $this->readSmtpResponse($socket);
+            $mailFromResponse = $this->readSmtpResponse($socket);
+
+            // Check if MAIL FROM was rejected (e.g., SPF policy rejection)
+            if (!str_starts_with($mailFromResponse, '250')) {
+                return [
+                    'connected' => true,
+                    'accepted' => false,
+                    'uncertain' => true,
+                    'mail_from_rejected' => true,
+                    'response' => $mailFromResponse,
+                ];
+            }
 
             // Send RCPT TO (actual test)
             fwrite($socket, "RCPT TO:<$email>\r\n");
