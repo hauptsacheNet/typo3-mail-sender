@@ -240,6 +240,7 @@ class ValidationResultElement extends AbstractFormElement
             'valid' => '<span class="badge bg-success" style="color: #fff !important;">✓ Valid</span>',
             'invalid' => '<span class="badge bg-danger" style="color: #fff !important;">✗ Invalid</span>',
             'warning' => '<span class="badge bg-warning" style="color: #000 !important;">⚠ Warning</span>',
+            'skipped' => '<span class="badge bg-secondary" style="color: #fff !important;">⊘ Skipped</span>',
             'pending' => '<span class="badge bg-info" style="color: #fff !important;">⏳ Pending</span>',
         ];
 

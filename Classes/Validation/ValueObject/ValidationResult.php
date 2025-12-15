@@ -14,10 +14,11 @@ class ValidationResult
     public const STATUS_VALID = 'valid';
     public const STATUS_INVALID = 'invalid';
     public const STATUS_WARNING = 'warning';
+    public const STATUS_SKIPPED = 'skipped';
     public const STATUS_PENDING = 'pending';
 
     /**
-     * @param string $status One of: valid, invalid, warning, pending
+     * @param string $status One of: valid, invalid, warning, skipped, pending
      * @param string $message Human-readable message describing the result
      * @param array<string, mixed> $details Additional details (e.g., DNS records, error codes)
      */
@@ -53,6 +54,14 @@ class ValidationResult
     }
 
     /**
+     * Create a skipped result (validator could not perform its check)
+     */
+    public static function skipped(string $message, array $details = []): self
+    {
+        return new self(self::STATUS_SKIPPED, $message, $details);
+    }
+
+    /**
      * Create a pending result
      */
     public static function pending(string $message = 'Validation pending', array $details = []): self
@@ -82,6 +91,14 @@ class ValidationResult
     public function isWarning(): bool
     {
         return $this->status === self::STATUS_WARNING;
+    }
+
+    /**
+     * Check if the result was skipped
+     */
+    public function isSkipped(): bool
+    {
+        return $this->status === self::STATUS_SKIPPED;
     }
 
     /**

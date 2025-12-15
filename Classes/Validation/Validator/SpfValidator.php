@@ -139,7 +139,7 @@ class SpfValidator implements SenderAddressValidatorInterface
 
         // Check if SMTP is configured
         if (!$this->configurationProvider->isSmtpConfigured()) {
-            return ValidationResult::warning(
+            return ValidationResult::skipped(
                 'SPF validation skipped: SMTP transport not configured',
                 ['reason' => 'no_smtp_transport']
             );
@@ -150,7 +150,7 @@ class SpfValidator implements SenderAddressValidatorInterface
         $smtpIps = $this->configurationProvider->getSmtpServerIps();
 
         if (empty($smtpIps)) {
-            return ValidationResult::warning(
+            return ValidationResult::skipped(
                 'SPF validation skipped: Cannot resolve SMTP server IP',
                 ['reason' => 'smtp_ip_unresolved', 'smtp_host' => $smtpHost]
             );

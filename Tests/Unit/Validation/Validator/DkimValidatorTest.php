@@ -224,7 +224,7 @@ class DkimValidatorTest extends TestCase
 
         $result = $validator->validate('test@example.com', 'example.com', null);
 
-        self::assertSame(ValidationResult::STATUS_WARNING, $result->getStatus());
+        self::assertSame(ValidationResult::STATUS_SKIPPED, $result->getStatus());
         self::assertStringContainsString('requires uploaded test email', $result->getMessage());
     }
 

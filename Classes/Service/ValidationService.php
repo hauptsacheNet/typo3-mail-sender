@@ -97,7 +97,7 @@ class ValidationService
     {
         $domain = $this->extractDomain($email);
         $validatorResults = [];
-        $overallStatus = ValidationResult::STATUS_VALID;
+        $overallStatus = ValidationResult::STATUS_SKIPPED; // Start with skipped, upgrade if validators run
         $errors = [];
 
         // Run all validators
@@ -106,13 +106,17 @@ class ValidationService
                 $result = $validator->validate($email, $domain, $emlData);
                 $validatorResults[$validator->getName()] = $result->toArray();
 
-                // Track overall status (invalid > warning > valid)
+                // Track overall status (invalid > warning > valid > skipped)
+                // Skipped means "no opinion" - it never overrides other statuses
                 if ($result->isInvalid()) {
                     $overallStatus = ValidationResult::STATUS_INVALID;
                     $errors = array_merge($errors, $result->getErrors());
-                } elseif ($result->isWarning() && $overallStatus === ValidationResult::STATUS_VALID) {
+                } elseif ($result->isWarning() && $overallStatus !== ValidationResult::STATUS_INVALID) {
                     $overallStatus = ValidationResult::STATUS_WARNING;
+                } elseif ($result->isValid() && !in_array($overallStatus, [ValidationResult::STATUS_INVALID, ValidationResult::STATUS_WARNING], true)) {
+                    $overallStatus = ValidationResult::STATUS_VALID;
                 }
+                // Skipped results don't change overall status
             } catch (\Throwable $e) {
                 $validatorResults[$validator->getName()] = [
                     'status' => ValidationResult::STATUS_INVALID,

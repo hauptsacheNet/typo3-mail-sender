@@ -162,8 +162,8 @@ class SpfValidatorTest extends TestCase
 
         $result = $validator->validate('test@example.com', 'example.com', $emlData);
 
-        // Should fall back to DNS-only result (warning because library not available)
-        self::assertSame(ValidationResult::STATUS_WARNING, $result->getStatus());
+        // Should fall back to DNS-only result (skipped because SMTP not configured)
+        self::assertSame(ValidationResult::STATUS_SKIPPED, $result->getStatus());
     }
 
     public function testDetailsIncludeBothEmlAndDnsResults(): void

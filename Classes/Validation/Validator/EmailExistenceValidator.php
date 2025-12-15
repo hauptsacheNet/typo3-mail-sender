@@ -47,7 +47,7 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
         // Get MX records to find mail server
         $mxRecords = @dns_get_record($domain, DNS_MX);
         if ($mxRecords === false || empty($mxRecords)) {
-            return ValidationResult::warning(
+            return ValidationResult::skipped(
                 'Cannot check email existence: No MX records found',
                 ['reason' => 'no_mx_records']
             );
@@ -61,7 +61,7 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
         // Try to connect to the first MX server
         $mxHost = $mxRecords[0]['target'] ?? null;
         if ($mxHost === null) {
-            return ValidationResult::warning(
+            return ValidationResult::skipped(
                 'Cannot check email existence: Invalid MX record',
                 ['reason' => 'invalid_mx_record']
             );
@@ -117,7 +117,7 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
 
             return $this->cacheResult(
                 $cacheKey,
-                ValidationResult::warning(
+                ValidationResult::skipped(
                     'Cannot check email existence: Unable to connect to mail server',
                     ['reason' => 'smtp_connection_failed', 'details' => $smtpCheck['error'] ?? 'Unknown error']
                 )
@@ -125,7 +125,7 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
         } catch (\Throwable $e) {
             return $this->cacheResult(
                 $cacheKey,
-                ValidationResult::warning(
+                ValidationResult::skipped(
                     'Cannot check email existence: ' . $e->getMessage(),
                     ['exception' => get_class($e), 'reason' => 'smtp_check_error']
                 )

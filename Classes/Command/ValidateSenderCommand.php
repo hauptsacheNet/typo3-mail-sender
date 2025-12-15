@@ -189,6 +189,7 @@ class ValidateSenderCommand extends Command
         $statusColor = match ($results['status']) {
             ValidationResult::STATUS_VALID => 'green',
             ValidationResult::STATUS_WARNING => 'yellow',
+            ValidationResult::STATUS_SKIPPED => 'gray',
             ValidationResult::STATUS_INVALID => 'red',
             default => 'gray',
         };
@@ -210,6 +211,7 @@ class ValidateSenderCommand extends Command
             $statusIcon = match ($status) {
                 ValidationResult::STATUS_VALID => '<fg=green>✓</>',
                 ValidationResult::STATUS_WARNING => '<fg=yellow>⚠</>',
+                ValidationResult::STATUS_SKIPPED => '<fg=gray>⊘</>',
                 ValidationResult::STATUS_INVALID => '<fg=red>✗</>',
                 default => '?',
             };

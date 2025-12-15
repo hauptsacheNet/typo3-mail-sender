@@ -25,11 +25,10 @@ class DkimValidator implements SenderAddressValidatorInterface
     {
         // DKIM can only be validated from actual email
         if ($emlData === null) {
-            return ValidationResult::warning(
+            return ValidationResult::skipped(
                 'DKIM validation requires uploaded test email',
                 [
-                    'warnings' => ['Upload a received test email (.eml) to validate DKIM signature'],
-                    'info' => 'DKIM signatures can only be verified from actual received emails',
+                    'info' => 'Upload a received test email (.eml) to validate DKIM signature',
                 ]
             );
         }
