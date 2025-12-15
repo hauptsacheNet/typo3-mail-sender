@@ -163,31 +163,30 @@ class DmarcValidatorTest extends TestCase
         self::assertStringContainsString('No DMARC record found', $result->getMessage());
     }
 
-    public function testDmarcPolicyNoneReturnsWarning(): void
+    public function testDmarcPolicyNoneReturnsValid(): void
     {
         $validator = new TestableDmarcValidator();
-        $validator->setMockedDmarcRecord('v=DMARC1; p=none');
+        $validator->setMockedDmarcRecord('v=DMARC1; p=none; rua=mailto:dmarc@example.com');
 
         $result = $validator->validate('test@example.com', 'example.com', null);
 
-        self::assertSame(ValidationResult::STATUS_WARNING, $result->getStatus());
-        self::assertContains(
-            'DMARC policy is set to "none" (monitoring only) - unauthorized emails are not blocked',
-            $result->getDetails()['warnings']
-        );
+        // p=none is a valid policy choice - it's monitoring mode and doesn't affect spam scoring
+        self::assertSame(ValidationResult::STATUS_VALID, $result->getStatus());
+        self::assertSame('none', $result->getDetails()['parsed']['p']);
     }
 
-    public function testMissingRuaReturnsWarning(): void
+    public function testMissingRuaReturnsValidWithRecommendation(): void
     {
         $validator = new TestableDmarcValidator();
         $validator->setMockedDmarcRecord('v=DMARC1; p=reject');
 
         $result = $validator->validate('test@example.com', 'example.com', null);
 
-        self::assertSame(ValidationResult::STATUS_WARNING, $result->getStatus());
+        // Missing rua doesn't affect spam scoring, so it should be valid with recommendation
+        self::assertSame(ValidationResult::STATUS_VALID, $result->getStatus());
         self::assertContains(
-            'No aggregate report URI (rua) configured - you won\'t receive authentication reports',
-            $result->getDetails()['warnings']
+            'Consider adding aggregate report URI (rua) to receive authentication reports',
+            $result->getDetails()['recommendations']
         );
     }
 

@@ -176,7 +176,7 @@ class DmarcValidator implements SenderAddressValidatorInterface
                 // Moderate policy - emails failing authentication go to spam
                 break;
             case 'none':
-                $warnings[] = 'DMARC policy is set to "none" (monitoring only) - unauthorized emails are not blocked';
+                // Monitoring policy - valid choice, doesn't affect spam scoring
                 break;
             default:
                 return ValidationResult::invalid(
@@ -201,23 +201,28 @@ class DmarcValidator implements SenderAddressValidatorInterface
             $details['dkim_alignment'] = $parsed['adkim'] === 's' ? 'strict' : 'relaxed';
         }
 
-        // Check reporting
+        // Check reporting (informational - doesn't affect spam scoring)
+        $recommendations = [];
         if (isset($parsed['rua'])) {
             $details['aggregate_reports'] = $parsed['rua'];
         } else {
-            $warnings[] = 'No aggregate report URI (rua) configured - you won\'t receive authentication reports';
+            $recommendations[] = 'Consider adding aggregate report URI (rua) to receive authentication reports';
         }
         if (isset($parsed['ruf'])) {
             $details['forensic_reports'] = $parsed['ruf'];
         }
 
-        // Check percentage
+        // Check percentage (informational - doesn't significantly affect spam scoring)
         if (isset($parsed['pct'])) {
             $pct = (int)$parsed['pct'];
             $details['percentage'] = $pct;
             if ($pct < 100) {
-                $warnings[] = 'DMARC policy only applies to ' . $pct . '% of emails';
+                $recommendations[] = 'DMARC policy applies to ' . $pct . '% of emails';
             }
+        }
+
+        if (!empty($recommendations)) {
+            $details['recommendations'] = $recommendations;
         }
 
         if (!empty($warnings)) {

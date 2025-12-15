@@ -19,6 +19,7 @@ services:
     public: true
     arguments:
       $validators: !tagged_iterator mail_sender.validator
+      $emlParserService: '@Hn\MailSender\Service\EmlParserService'
 
   # Backend Module Controller
   Hn\MailSender\Controller\MailSenderController:

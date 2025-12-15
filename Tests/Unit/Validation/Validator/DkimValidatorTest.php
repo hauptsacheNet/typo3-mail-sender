@@ -161,7 +161,7 @@ class DkimValidatorTest extends TestCase
         self::assertStringContainsString('failed', $result->getMessage());
     }
 
-    public function testDomainAlignmentWarning(): void
+    public function testDomainAlignmentPassesWhenDkimPasses(): void
     {
         $validator = new TestableDkimValidator();
         $validator->setMockedDkimKey(self::SAMPLE_DKIM_KEY);
@@ -179,9 +179,11 @@ class DkimValidatorTest extends TestCase
 
         $result = $validator->validate('test@example.com', 'example.com', $emlData);
 
-        self::assertSame(ValidationResult::STATUS_WARNING, $result->getStatus());
-        self::assertStringContainsString('does not align', $result->getMessage());
+        // Domain alignment is DMARC's concern, not DKIM's - if DKIM passed, that's valid
+        self::assertSame(ValidationResult::STATUS_VALID, $result->getStatus());
+        self::assertStringContainsString('passed', $result->getMessage());
         self::assertFalse($result->getDetails()['domain_aligned']);
+        self::assertStringContainsString('domain alignment is checked by DMARC', $result->getDetails()['info']);
     }
 
     public function testDetailsIncludeDkimInfo(): void

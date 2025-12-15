@@ -216,25 +216,16 @@ class DkimValidator implements SenderAddressValidatorInterface
 
         // Key exists - we can't verify the signature without full message canonicalization
         // but the presence of the key indicates DKIM is properly configured
+        // Domain alignment is DMARC's concern, not DKIM's
         if (!$domainAligned) {
-            return ValidationResult::warning(
-                'DKIM key found but signing domain does not align with sender',
-                [
-                    'warnings' => [
-                        'DKIM signed by "' . $signingDomain . '" but sender domain is "' . $senderDomain . '"',
-                        'Signature verification not performed (only DNS key presence checked)',
-                    ],
-                    ...$details,
-                ]
-            );
+            $details['info'] = 'DKIM signed by "' . $signingDomain . '" (domain alignment is checked by DMARC). Note: Full signature verification not performed.';
+        } else {
+            $details['info'] = 'DKIM signature found, DNS key verified. Note: Full signature verification not performed.';
         }
 
         return ValidationResult::valid(
             'DKIM signature present and public key exists in DNS',
-            [
-                'info' => 'DKIM signature found, DNS key verified. Note: Full signature verification not performed.',
-                ...$details,
-            ]
+            $details
         );
     }
 
@@ -271,18 +262,10 @@ class DkimValidator implements SenderAddressValidatorInterface
             );
         }
 
-        // Check domain alignment
+        // Domain alignment is DMARC's concern, not DKIM's
+        // If DKIM passed, that's what matters for DKIM validation
         if (!$domainAligned && $signingDomain !== null) {
-            return ValidationResult::warning(
-                'DKIM passed but signing domain does not align with sender domain',
-                [
-                    'warnings' => [
-                        'DKIM signature valid but signed by "' . $signingDomain
-                        . '" instead of "' . $senderDomain . '"'
-                    ],
-                    ...$details
-                ]
-            );
+            $details['info'] = 'DKIM signed by "' . $signingDomain . '" (domain alignment is checked by DMARC)';
         }
 
         return ValidationResult::valid(

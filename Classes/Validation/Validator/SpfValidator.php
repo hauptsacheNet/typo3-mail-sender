@@ -192,14 +192,15 @@ class SpfValidator implements SenderAddressValidatorInterface
         $details['spf_results'] = $results;
 
         // Determine overall result
-        // If any IP passes, the server is authorized (servers use different IPs)
         if ($anyPass) {
             if (!empty($failingIps)) {
-                // Some IPs pass, some fail - warn about the failing ones
-                return ValidationResult::warning(
-                    'SPF validation passed with warnings: Some SMTP server IPs are not authorized',
+                // Some IPs pass, some fail - this is a configuration error
+                // Even though some IPs are authorized, having unauthorized IPs indicates misconfiguration
+                return ValidationResult::invalid(
+                    'SPF validation failed: Not all SMTP server IPs are authorized',
                     [
-                        'warnings' => ['IP(s) ' . implode(', ', $failingIps) . ' not authorized, but other IPs pass'],
+                        'errors' => ['IP(s) ' . implode(', ', $failingIps) . ' not authorized by SPF'],
+                        'info' => 'If your SMTP uses a relay service, upload a received test email (.eml) to verify actual delivery.',
                         ...$details
                     ]
                 );
