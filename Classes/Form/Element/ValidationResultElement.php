@@ -117,7 +117,7 @@ class ValidationResultElement extends AbstractFormElement
 
         return sprintf(
             '<div class="validation-metadata">
-                <dl>
+                <dl class="validation-metadata-grid">
                     <dt>Email:</dt><dd>%s</dd>
                     <dt>Domain:</dt><dd>%s</dd>
                     <dt>Last Check:</dt><dd>%s</dd>
@@ -161,9 +161,9 @@ class ValidationResultElement extends AbstractFormElement
             $detailsId = 'details-' . md5($name);
             $detailsJson = htmlspecialchars(json_encode($details, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             $detailsHtml = sprintf(
-                '<details class="validator-details" id="%s">
-                    <summary>Show details</summary>
-                    <pre>%s</pre>
+                '<details class="validator-details mt-2" id="%s">
+                    <summary class="text-primary small">Show details</summary>
+                    <pre class="validation-pre">%s</pre>
                 </details>',
                 $detailsId,
                 $detailsJson
@@ -171,12 +171,12 @@ class ValidationResultElement extends AbstractFormElement
         }
 
         return sprintf(
-            '<div class="validator-result">
-                <div class="validator-header">
+            '<div class="validator-result-card">
+                <div class="validator-header d-flex justify-content-between align-items-center mb-1">
                     <strong>%s</strong>
                     %s
                 </div>
-                <div class="validator-message">%s</div>
+                <div class="validator-message small">%s</div>
                 %s
             </div>',
             htmlspecialchars($name),
@@ -224,7 +224,7 @@ class ValidationResultElement extends AbstractFormElement
         return sprintf(
             '<details class="validation-raw-json">
                 <summary>Show raw JSON</summary>
-                <pre>%s</pre>
+                <pre class="validation-pre">%s</pre>
             </details>',
             htmlspecialchars($prettyJson)
         );
@@ -232,206 +232,143 @@ class ValidationResultElement extends AbstractFormElement
 
     /**
      * Get status badge HTML
+     * Uses inline styles for text color to ensure readability regardless of theme
      */
     private function getStatusBadge(string $status): string
     {
         $badges = [
-            'valid' => '<span class="badge badge-success">✓ Valid</span>',
-            'invalid' => '<span class="badge badge-danger">✗ Invalid</span>',
-            'warning' => '<span class="badge badge-warning">⚠ Warning</span>',
-            'pending' => '<span class="badge badge-info">⏳ Pending</span>',
+            'valid' => '<span class="badge bg-success" style="color: #fff !important;">✓ Valid</span>',
+            'invalid' => '<span class="badge bg-danger" style="color: #fff !important;">✗ Invalid</span>',
+            'warning' => '<span class="badge bg-warning" style="color: #000 !important;">⚠ Warning</span>',
+            'pending' => '<span class="badge bg-info" style="color: #fff !important;">⏳ Pending</span>',
         ];
 
-        return $badges[$status] ?? '<span class="badge badge-secondary">' . htmlspecialchars($status) . '</span>';
+        return $badges[$status] ?? '<span class="badge bg-secondary" style="color: #fff !important;">' . htmlspecialchars($status) . '</span>';
     }
 
     /**
-     * Get inline CSS styles
+     * Get inline CSS styles using TYPO3's CSS variables for dark mode compatibility
      */
     private function getStyleTag(): string
     {
         return '<style>
             .validation-result-container {
-                background: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 15px;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background-color: var(--typo3-component-bg);
+                color: var(--typo3-component-color);
+                border: 1px solid var(--typo3-component-border-color);
+                border-radius: var(--typo3-component-border-radius);
+                padding: 1rem;
             }
 
             .validation-overall-status {
-                margin-bottom: 20px;
-                padding-bottom: 15px;
-                border-bottom: 2px solid #dee2e6;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--typo3-component-border-color);
             }
 
             .validation-overall-status h4 {
-                margin: 0 0 10px 0;
-                font-size: 16px;
+                margin: 0 0 0.5rem 0;
+                font-size: 1rem;
                 font-weight: 600;
+                color: inherit;
             }
 
             .status-badge-large {
-                font-size: 18px;
+                font-size: 1.125rem;
             }
 
             .validation-metadata {
-                margin-bottom: 20px;
-                padding-bottom: 15px;
-                border-bottom: 1px solid #dee2e6;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--typo3-component-border-color);
             }
 
-            .validation-metadata dl {
+            .validation-metadata-grid {
                 display: grid;
                 grid-template-columns: 120px 1fr;
-                gap: 8px 15px;
+                gap: 0.5rem 1rem;
                 margin: 0;
             }
 
-            .validation-metadata dt {
+            .validation-metadata-grid dt {
                 font-weight: 600;
-                color: #495057;
+                opacity: 0.7;
             }
 
-            .validation-metadata dd {
+            .validation-metadata-grid dd {
                 margin: 0;
-                color: #212529;
             }
 
             .validation-validators h4 {
-                margin: 0 0 15px 0;
-                font-size: 16px;
+                margin: 0 0 1rem 0;
+                font-size: 1rem;
                 font-weight: 600;
+                opacity: 0.7;
             }
 
-            .validator-result {
-                background: #fff;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 12px;
-                margin-bottom: 10px;
+            .validator-result-card {
+                background-color: var(--typo3-component-bg);
+                border: 1px solid var(--typo3-component-border-color);
+                border-radius: var(--typo3-component-border-radius);
+                padding: 0.75rem 1rem;
+                margin-bottom: 0.5rem;
             }
 
-            .validator-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 8px;
+            .validator-result-card strong {
+                opacity: 0.8;
             }
 
             .validator-message {
-                color: #6c757d;
-                font-size: 14px;
-                margin-bottom: 8px;
+                opacity: 0.6;
+                font-size: 0.875rem;
             }
 
-            .validator-details {
-                margin-top: 10px;
-            }
-
-            .validator-details summary {
+            .validator-details summary,
+            .validation-raw-json summary {
                 cursor: pointer;
-                color: #007bff;
-                font-size: 13px;
-                user-select: none;
+                color: var(--typo3-text-color-link);
+                font-size: 0.8125rem;
             }
 
-            .validator-details summary:hover {
+            .validator-details summary:hover,
+            .validation-raw-json summary:hover {
                 text-decoration: underline;
             }
 
-            .validator-details pre {
-                background: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 10px;
-                margin: 10px 0 0 0;
-                font-size: 12px;
-                overflow-x: auto;
-            }
-
-            .validation-errors {
-                margin-top: 20px;
-                padding-top: 15px;
-                border-top: 1px solid #dee2e6;
-            }
-
-            .validation-errors h4 {
-                margin: 0 0 10px 0;
-                font-size: 16px;
-                font-weight: 600;
-                color: #dc3545;
-            }
-
-            .validation-errors ul {
-                margin: 0;
-                padding-left: 20px;
-                color: #dc3545;
-            }
-
-            .validation-raw-json {
-                margin-top: 20px;
-                padding-top: 15px;
-                border-top: 1px solid #dee2e6;
-            }
-
-            .validation-raw-json summary {
-                cursor: pointer;
-                color: #6c757d;
-                font-size: 13px;
-                user-select: none;
-            }
-
-            .validation-raw-json summary:hover {
-                color: #495057;
-            }
-
-            .validation-raw-json pre {
-                background: #fff;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 12px;
-                margin: 10px 0 0 0;
-                font-size: 12px;
+            .validation-pre {
+                background-color: color-mix(in srgb, var(--typo3-component-bg), var(--typo3-component-color) 5%);
+                border: 1px solid var(--typo3-component-border-color);
+                border-radius: var(--typo3-component-border-radius);
+                padding: 0.75rem;
+                margin: 0.5rem 0 0 0;
+                font-size: 0.75rem;
                 overflow-x: auto;
                 max-height: 400px;
             }
 
-            .badge {
-                display: inline-block;
-                padding: 4px 8px;
-                font-size: 13px;
+            .validation-errors {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid var(--typo3-component-border-color);
+            }
+
+            .validation-errors h4 {
+                margin: 0 0 0.5rem 0;
+                font-size: 1rem;
                 font-weight: 600;
-                line-height: 1;
-                text-align: center;
-                white-space: nowrap;
-                vertical-align: baseline;
-                border-radius: 3px;
+                color: var(--typo3-state-danger-color, #dc3545);
             }
 
-            .badge-success {
-                color: #fff;
-                background-color: #28a745;
+            .validation-errors ul {
+                margin: 0;
+                padding-left: 1.25rem;
+                color: var(--typo3-state-danger-color, #dc3545);
             }
 
-            .badge-danger {
-                color: #fff;
-                background-color: #dc3545;
-            }
-
-            .badge-warning {
-                color: #212529;
-                background-color: #ffc107;
-            }
-
-            .badge-info {
-                color: #fff;
-                background-color: #17a2b8;
-            }
-
-            .badge-secondary {
-                color: #fff;
-                background-color: #6c757d;
+            .validation-raw-json {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid var(--typo3-component-border-color);
             }
         </style>';
     }
