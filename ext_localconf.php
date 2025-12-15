@@ -17,3 +17,12 @@ $GLOBALS['TYPO3_CONF_VARS']['SYS']['formEngine']['nodeRegistry'][1734000000] = [
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['fluid']['namespaces']['mailsender'] = [
     'Hn\\MailSender\\ViewHelpers',
 ];
+
+// Register scheduler task
+$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['scheduler']['tasks'][
+    \Hn\MailSender\Task\ValidateSenderAddressesTask::class
+] = [
+    'extension' => 'mail_sender',
+    'title' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang.xlf:scheduler.task.title',
+    'description' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang.xlf:scheduler.task.description',
+];

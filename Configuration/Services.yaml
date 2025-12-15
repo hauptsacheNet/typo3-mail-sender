@@ -21,6 +21,10 @@ services:
       $validators: !tagged_iterator mail_sender.validator
       $emlParserService: '@Hn\MailSender\Service\EmlParserService'
 
+  # Default Sender Import Service (public for scheduler task access)
+  Hn\MailSender\Service\DefaultSenderImportService:
+    public: true
+
   # Backend Module Controller
   Hn\MailSender\Controller\MailSenderController:
     public: true
@@ -31,13 +35,6 @@ services:
       - name: 'console.command'
         command: 'mail:sender:validate'
         description: 'Validate email sender addresses'
-
-  # Scheduler Task
-  Hn\MailSender\Task\ValidateSenderAddressesTask:
-    tags:
-      - name: 'scheduler.task'
-        title: 'Mail Sender: Validate All Addresses'
-        description: 'Validates all configured sender email addresses and updates their status'
 
   # Status Report Provider
   Hn\MailSender\Report\MailSenderStatusProvider:
