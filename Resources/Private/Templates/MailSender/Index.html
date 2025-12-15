@@ -50,7 +50,7 @@
                 <core:icon identifier="actions-refresh" /> Revalidate Selected
             </button>
             <button type="button" class="btn btn-default" id="bulk-test-email-btn" data-bs-toggle="modal" data-bs-target="#testEmailModal">
-                <core:icon identifier="actions-email" /> Send Test Email to Selected
+                <core:icon identifier="actions-envelope" /> Send Test Email to Selected
             </button>
             <button type="button" class="btn btn-danger" id="bulk-delete-btn">
                 <core:icon identifier="actions-delete" /> Delete Selected
@@ -84,7 +84,7 @@
                             <f:if condition="{sender.hidden}">
                                 <span class="badge badge-secondary">Hidden</span>
                             </f:if>
-                            {sender.sender_address}
+                            <a href="{editUrl}&edit[tx_mailsender_address][{sender.uid}]=edit&returnUrl={returnUrl -> f:format.urlencode()}">{sender.sender_address}</a>
                         </td>
                         <td>{sender.sender_name}</td>
                         <td>
@@ -143,7 +143,7 @@
                                         data-bs-toggle="modal"
                                         data-bs-target="#testEmailModal"
                                         title="Send Test Email">
-                                    <core:icon identifier="actions-email" />
+                                    <core:icon identifier="actions-envelope" />
                                 </button>
                                 <button type="button" class="btn btn-danger single-delete-btn"
                                         data-uid="{sender.uid}" title="Delete">

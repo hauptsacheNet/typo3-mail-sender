@@ -6,6 +6,12 @@
 			<trans-unit id="formEditor.senderAddress.fieldExplanationText">
 				<source>Select a validated sender address. Only addresses with "valid" or "warning" validation status are shown.</source>
 			</trans-unit>
+			<trans-unit id="scheduler.task.title">
+				<source>Mail Sender: Validate All Addresses</source>
+			</trans-unit>
+			<trans-unit id="scheduler.task.description">
+				<source>Validates all configured sender email addresses and updates their status</source>
+			</trans-unit>
 		</body>
 	</file>
 </xliff>
