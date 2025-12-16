@@ -31,6 +31,14 @@ return [
                 'path' => '/delete',
                 'target' => MailSenderController::class . '::deleteAction',
             ],
+            'saveWebhook' => [
+                'path' => '/save-webhook',
+                'target' => MailSenderController::class . '::saveWebhookSettingsAction',
+            ],
+            'testWebhook' => [
+                'path' => '/test-webhook',
+                'target' => MailSenderController::class . '::testWebhookAction',
+            ],
         ],
     ],
 ];

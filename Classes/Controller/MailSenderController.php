@@ -6,6 +6,7 @@ namespace Hn\MailSender\Controller;
 
 use Hn\MailSender\Service\DefaultSenderImportService;
 use Hn\MailSender\Service\ValidationService;
+use Hn\MailSender\Service\WebhookNotificationService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\Mime\Address;
@@ -13,6 +14,7 @@ use TYPO3\CMS\Backend\Routing\UriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\IconSize;
@@ -35,6 +37,7 @@ class MailSenderController
         private readonly FlashMessageService $flashMessageService,
         private readonly ConnectionPool $connectionPool,
         private readonly DefaultSenderImportService $defaultSenderImportService,
+        private readonly WebhookNotificationService $webhookNotificationService,
     ) {
     }
 
@@ -82,7 +85,16 @@ class MailSenderController
         $validateUrl = (string)$this->uriBuilder->buildUriFromRoute('mailsender.validate');
         $sendTestEmailUrl = (string)$this->uriBuilder->buildUriFromRoute('mailsender.sendTestEmail');
         $deleteUrl = (string)$this->uriBuilder->buildUriFromRoute('mailsender.delete');
+        $saveWebhookUrl = (string)$this->uriBuilder->buildUriFromRoute('mailsender.saveWebhook');
+        $testWebhookUrl = (string)$this->uriBuilder->buildUriFromRoute('mailsender.testWebhook');
         $returnUrl = (string)$this->uriBuilder->buildUriFromRoute('mailsender');
+
+        // Get webhook settings
+        $webhookSettings = [
+            'url' => $this->webhookNotificationService->getWebhookUrl(),
+            'format' => $this->webhookNotificationService->getWebhookFormat(),
+            'lastResult' => $this->webhookNotificationService->getLastResult(),
+        ];
 
         // Add "Add New Sender Address" button to DocHeader
         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
@@ -101,8 +113,11 @@ class MailSenderController
             'validateUrl' => $validateUrl,
             'sendTestEmailUrl' => $sendTestEmailUrl,
             'deleteUrl' => $deleteUrl,
+            'saveWebhookUrl' => $saveWebhookUrl,
+            'testWebhookUrl' => $testWebhookUrl,
             'returnUrl' => $returnUrl,
             'schedulerUrl' => $schedulerUrl,
+            'webhookSettings' => $webhookSettings,
         ]);
 
         return $moduleTemplate->renderResponse('MailSender/Index');
@@ -230,6 +245,64 @@ class MailSenderController
         return new RedirectResponse(
             (string)$this->uriBuilder->buildUriFromRoute('mailsender')
         );
+    }
+
+    /**
+     * Save webhook settings
+     */
+    public function saveWebhookSettingsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $parsedBody = $request->getParsedBody();
+
+        $webhookUrl = trim($parsedBody['webhookUrl'] ?? '');
+        $webhookFormat = $parsedBody['webhookFormat'] ?? WebhookNotificationService::FORMAT_JSON;
+
+        // Validate URL scheme if URL is provided
+        if (!empty($webhookUrl)) {
+            $scheme = parse_url($webhookUrl, PHP_URL_SCHEME);
+            if (!in_array(strtolower($scheme ?? ''), ['http', 'https'], true)) {
+                $this->addFlashMessage(
+                    'Invalid webhook URL: Only http and https URLs are allowed.',
+                    'Invalid URL',
+                    ContextualFeedbackSeverity::ERROR
+                );
+                return new RedirectResponse(
+                    (string)$this->uriBuilder->buildUriFromRoute('mailsender')
+                );
+            }
+        }
+
+        $this->webhookNotificationService->setWebhookUrl($webhookUrl);
+        $this->webhookNotificationService->setWebhookFormat($webhookFormat);
+
+        // Check if the URL passes SSRF validation
+        if (!empty($webhookUrl) && !$this->webhookNotificationService->isConfigured()) {
+            $this->addFlashMessage(
+                'Webhook URL saved but may not work: The URL appears to point to an internal or private address, which is blocked for security reasons.',
+                'Warning',
+                ContextualFeedbackSeverity::WARNING
+            );
+        } else {
+            $this->addFlashMessage(
+                'Webhook settings have been saved.',
+                'Settings Saved',
+                ContextualFeedbackSeverity::OK
+            );
+        }
+
+        return new RedirectResponse(
+            (string)$this->uriBuilder->buildUriFromRoute('mailsender')
+        );
+    }
+
+    /**
+     * Test webhook configuration by sending a test message
+     */
+    public function testWebhookAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $result = $this->webhookNotificationService->sendTestMessage();
+
+        return new JsonResponse($result);
     }
 
     /**

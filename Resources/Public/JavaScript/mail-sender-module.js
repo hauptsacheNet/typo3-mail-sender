@@ -157,4 +157,41 @@ document.addEventListener('DOMContentLoaded', function() {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    // Test Webhook button
+    var testWebhookBtn = document.getElementById('testWebhookBtn');
+    if (testWebhookBtn) {
+        testWebhookBtn.addEventListener('click', function() {
+            var testUrl = this.dataset.testUrl;
+            var resultSpan = document.getElementById('webhookTestResult');
+            var btn = this;
+
+            // Disable button and show loading state
+            btn.disabled = true;
+            resultSpan.innerHTML = '<span class="text-muted">Sending test...</span>';
+
+            fetch(testUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (data.success) {
+                    resultSpan.innerHTML = '<span class="text-success">&#10003; ' + escapeHtml(data.message) + '</span>';
+                } else {
+                    resultSpan.innerHTML = '<span class="text-danger">&#10007; ' + escapeHtml(data.message) + '</span>';
+                }
+            })
+            .catch(function(error) {
+                resultSpan.innerHTML = '<span class="text-danger">&#10007; Error: ' + escapeHtml(error.message) + '</span>';
+            })
+            .finally(function() {
+                btn.disabled = false;
+            });
+        });
+    }
 });

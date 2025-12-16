@@ -24,10 +24,10 @@
                         </f:else>
                     </f:if>
                     <f:if condition="{schedulerInfo.lastRun}">
-                        <br/>Last run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.lastRun}</f:format.date>
+                        <div style="display: inline-block; margin-inline-start: 1ch">Last run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.lastRun}</f:format.date></div>
                     </f:if>
                     <f:if condition="{schedulerInfo.nextRun}">
-                        <br/>Next run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.nextRun}</f:format.date>
+                        <div style="display: inline-block; margin-inline-start: 1ch">Next run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.nextRun}</f:format.date></div>
                     </f:if>
                 </f:then>
                 <f:else>
@@ -205,6 +205,109 @@
     <form id="deleteForm" method="post" action="{deleteUrl}" style="display: none;">
         <input type="hidden" name="uids[]" id="deleteUids" />
     </form>
+
+    <f:comment>Webhook Notifications Panel</f:comment>
+    <div class="callout callout-info mb-4">
+        <h4 class="callout-title">
+            <core:icon identifier="actions-bell" /> Webhook Notifications
+        </h4>
+        <div class="callout-body">
+            <form id="webhookSettingsForm" method="post" action="{saveWebhookUrl}">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="webhookUrl" class="form-label">Webhook URL</label>
+                            <input type="url" class="form-control" id="webhookUrl" name="webhookUrl"
+                                   value="{webhookSettings.url}"
+                                   placeholder="https://hooks.slack.com/services/..." />
+                            <div class="form-text">
+                                Enter the URL where notifications should be sent (Slack incoming webhook, Teams webhook, or any HTTP endpoint).
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="webhookFormat" class="form-label">Format</label>
+                            <select class="form-select" id="webhookFormat" name="webhookFormat">
+                                <option value="json"{f:if(condition: '{webhookSettings.format} == \'json\'', then: ' selected')}>JSON (Generic)</option>
+                                <option value="slack"{f:if(condition: '{webhookSettings.format} == \'slack\'', then: ' selected')}>Slack</option>
+                                <option value="teams"{f:if(condition: '{webhookSettings.format} == \'teams\'', then: ' selected')}>Microsoft Teams</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <button type="submit" class="btn btn-primary">
+                        <core:icon identifier="actions-save" /> Save Settings
+                    </button>
+                    <button type="button" class="btn btn-default" id="testWebhookBtn" data-test-url="{testWebhookUrl}">
+                        <core:icon identifier="actions-rocket" /> Test Webhook
+                    </button>
+                    <span id="webhookTestResult" class="ms-2"></span>
+                </div>
+            </form>
+
+            <f:if condition="{webhookSettings.lastResult}">
+                <div class="mt-3 small">
+                    <strong>Last webhook:</strong>
+                    <f:if condition="{webhookSettings.lastResult.success}">
+                        <f:then>
+                            <span class="text-success">
+                                <core:icon identifier="actions-check" size="small" />
+                                {webhookSettings.lastResult.message}
+                            </span>
+                        </f:then>
+                        <f:else>
+                            <span class="text-danger">
+                                <core:icon identifier="actions-ban" size="small" />
+                                {webhookSettings.lastResult.message}
+                            </span>
+                        </f:else>
+                    </f:if>
+                    <f:if condition="{webhookSettings.lastResult.timestamp}">
+                        <span class="text-muted">
+                            at <f:format.date format="Y-m-d H:i:s">{webhookSettings.lastResult.timestamp}</f:format.date>
+                        </span>
+                    </f:if>
+                </div>
+            </f:if>
+
+            <div class="alert alert-secondary mt-3">
+                <strong>Why not email?</strong> Because notifying you via email when your email configuration
+                is broken would be... optimistic. Instead, configure a webhook to alert you
+                through Slack, Teams, or any HTTP endpoint.
+
+                <details class="mt-2">
+                    <summary><strong>Setup guides</strong></summary>
+                    <ul class="mt-2 mb-0">
+                        <li>
+                            <strong>Slack:</strong>
+                            <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener">
+                                Create an Incoming Webhook
+                            </a>
+                        </li>
+                        <li>
+                            <strong>Microsoft Teams:</strong>
+                            <a href="https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook" target="_blank" rel="noopener">
+                                Add Incoming Webhook to a channel
+                            </a>
+                        </li>
+                        <li>
+                            <strong>Discord:</strong>
+                            <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" rel="noopener">
+                                Intro to Webhooks
+                            </a>
+                            (use Slack format)
+                        </li>
+                        <li>
+                            <strong>Generic JSON:</strong>
+                            Any HTTP endpoint accepting POST with <code>Content-Type: application/json</code>
+                        </li>
+                    </ul>
+                </details>
+            </div>
+        </div>
+    </div>
 
 </div>
 </f:section>

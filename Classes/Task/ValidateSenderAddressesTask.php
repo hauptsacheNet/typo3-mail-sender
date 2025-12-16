@@ -6,6 +6,7 @@ namespace Hn\MailSender\Task;
 
 use Hn\MailSender\Service\DefaultSenderImportService;
 use Hn\MailSender\Service\ValidationService;
+use Hn\MailSender\Service\WebhookNotificationService;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Scheduler\Task\AbstractTask;
@@ -74,8 +75,101 @@ class ValidateSenderAddressesTask extends AbstractTask
             ]
         );
 
+        // Send webhook notification if there are issues
+        $this->sendWebhookNotification($connectionPool);
+
         // Return true unless all validations failed
         return $errorCount === 0 || $successCount > 0;
+    }
+
+    /**
+     * Send webhook notification about validation results
+     */
+    private function sendWebhookNotification(ConnectionPool $connectionPool): void
+    {
+        try {
+            $webhookService = GeneralUtility::makeInstance(WebhookNotificationService::class);
+
+            if (!$webhookService->isConfigured()) {
+                return;
+            }
+
+            // Get validation statistics
+            $queryBuilder = $connectionPool->getQueryBuilderForTable('tx_mailsender_address');
+            $queryBuilder->getRestrictions()->removeAll();
+
+            $results = $queryBuilder
+                ->select('validation_status')
+                ->addSelectLiteral('COUNT(*) AS count')
+                ->from('tx_mailsender_address')
+                ->where(
+                    $queryBuilder->expr()->eq('deleted', 0)
+                )
+                ->groupBy('validation_status')
+                ->executeQuery()
+                ->fetchAllAssociative();
+
+            $stats = [
+                'total' => 0,
+                'valid' => 0,
+                'warning' => 0,
+                'invalid' => 0,
+                'pending' => 0,
+            ];
+
+            foreach ($results as $row) {
+                $count = (int)$row['count'];
+                $stats['total'] += $count;
+                $status = $row['validation_status'] ?? 'pending';
+                if (isset($stats[$status])) {
+                    $stats[$status] = $count;
+                } else {
+                    $stats['pending'] += $count;
+                }
+            }
+
+            // Get failed addresses for notification
+            $failedAddresses = [];
+            if ($stats['invalid'] > 0 || $stats['warning'] > 0) {
+                $queryBuilder = $connectionPool->getQueryBuilderForTable('tx_mailsender_address');
+                $queryBuilder->getRestrictions()->removeAll();
+
+                $failed = $queryBuilder
+                    ->select('sender_address', 'validation_status', 'validation_result')
+                    ->from('tx_mailsender_address')
+                    ->where(
+                        $queryBuilder->expr()->eq('deleted', 0),
+                        $queryBuilder->expr()->in('validation_status', $queryBuilder->createNamedParameter(
+                            ['invalid', 'warning'],
+                            \Doctrine\DBAL\ArrayParameterType::STRING
+                        ))
+                    )
+                    ->executeQuery()
+                    ->fetchAllAssociative();
+
+                foreach ($failed as $row) {
+                    $errors = [];
+                    if ($row['validation_result']) {
+                        $resultData = json_decode($row['validation_result'], true);
+                        $errors = $resultData['errors'] ?? [];
+                    }
+                    $failedAddresses[] = [
+                        'email' => $row['sender_address'],
+                        'status' => $row['validation_status'],
+                        'errors' => $errors,
+                    ];
+                }
+            }
+
+            // Send notification
+            $webhookService->notifyValidationResults($stats, $failedAddresses);
+
+        } catch (\Exception $e) {
+            $this->logger?->warning(
+                'Failed to send webhook notification: {message}',
+                ['message' => $e->getMessage()]
+            );
+        }
     }
 
     /**
