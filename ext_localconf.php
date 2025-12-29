@@ -2,6 +2,16 @@
 
 defined('TYPO3') or die();
 
+// Load bundled libraries autoloader for non-composer installations (TER)
+// In composer mode, these classes are already autoloaded via the main autoloader
+(static function (): void {
+    $autoloadFile = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('mail_sender')
+        . 'Resources/Private/PHP/vendor/autoload.php';
+    if (file_exists($autoloadFile)) {
+        require_once $autoloadFile;
+    }
+})();
+
 // Register DataHandler hook for automatic validation on save
 $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] =
     \Hn\MailSender\Hooks\DataHandlerHook::class;

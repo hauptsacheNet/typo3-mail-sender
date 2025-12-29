@@ -1,0 +1,17 @@
+{
+    "name": "hn/mail-sender-libraries",
+    "description": "Bundled libraries for mail_sender extension in non-composer TYPO3 installations",
+    "require": {
+        "zbateson/mail-mime-parser": "^3.0"
+    },
+    "replace": {
+        "guzzlehttp/psr7": "*",
+        "psr/log": "*",
+        "psr/http-message": "*"
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "classmap-authoritative": true
+    }
+}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Hn\MailSender\Service;
 
+use Hn\MailSender\Exception\EmlParserUnavailableException;
 use TYPO3\CMS\Core\Resource\FileInterface;
 use ZBateson\MailMimeParser\MailMimeParser;
 
@@ -15,6 +16,14 @@ use ZBateson\MailMimeParser\MailMimeParser;
  */
 class EmlParserService
 {
+    /**
+     * Check if the mail-mime-parser library is available
+     */
+    public static function isAvailable(): bool
+    {
+        return class_exists(MailMimeParser::class);
+    }
+
     /**
      * Parse an EML file and extract validation-relevant data
      *
@@ -33,6 +42,14 @@ class EmlParserService
      */
     public function parse(FileInterface $file): array
     {
+        if (!self::isAvailable()) {
+            throw new EmlParserUnavailableException(
+                'The zbateson/mail-mime-parser library is required for EML parsing. '
+                . 'Install it via Composer: composer require zbateson/mail-mime-parser',
+                1735500000
+            );
+        }
+
         $content = $file->getContents();
         $fileHash = hash('sha256', $content);
 
