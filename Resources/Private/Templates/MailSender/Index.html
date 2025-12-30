@@ -9,43 +9,9 @@
 
     <f:flashMessages queueIdentifier="core.template.flashMessages" />
 
-    <f:comment>Scheduler Info Panel</f:comment>
-    <div class="callout callout-{f:if(condition: schedulerInfo.configured, then: '{f:if(condition: schedulerInfo.disabled, then: \'warning\', else: \'success\')}', else: 'warning')} mb-4">
-        <h4 class="callout-title">Scheduler Task</h4>
-        <div class="callout-body">
-            <f:if condition="{schedulerInfo.configured}">
-                <f:then>
-                    <f:if condition="{schedulerInfo.disabled}">
-                        <f:then>
-                            <span class="badge badge-warning">Disabled</span>
-                        </f:then>
-                        <f:else>
-                            <span class="badge badge-success">Active</span>
-                        </f:else>
-                    </f:if>
-                    <f:if condition="{schedulerInfo.lastRun}">
-                        <div style="display: inline-block; margin-inline-start: 1ch">Last run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.lastRun}</f:format.date></div>
-                    </f:if>
-                    <f:if condition="{schedulerInfo.nextRun}">
-                        <div style="display: inline-block; margin-inline-start: 1ch">Next run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.nextRun}</f:format.date></div>
-                    </f:if>
-                </f:then>
-                <f:else>
-                    <span class="badge badge-warning">Not configured</span>
-                    <f:if condition="{schedulerUrl}">
-                        <br/>
-                        <a href="{schedulerUrl}" class="btn btn-sm btn-default mt-2">
-                            <core:icon identifier="actions-add" /> Configure Scheduler Task
-                        </a>
-                    </f:if>
-                </f:else>
-            </f:if>
-        </div>
-    </div>
-
     <f:comment>Bulk Actions Bar (shown when items selected via JS)</f:comment>
-    <div class="mb-3">
-        <span id="bulk-actions" style="display: none;">
+    <div class="mb-3" style="min-height: 38px;">
+        <span id="bulk-actions" style="visibility: hidden;">
             <button type="button" class="btn btn-default" id="bulk-validate-btn">
                 <core:icon identifier="actions-refresh" /> Revalidate Selected
             </button>
@@ -206,12 +172,54 @@
         <input type="hidden" name="uids[]" id="deleteUids" />
     </form>
 
-    <f:comment>Webhook Notifications Panel</f:comment>
-    <div class="callout callout-info mb-4">
-        <h4 class="callout-title">
-            <core:icon identifier="actions-bell" /> Webhook Notifications
-        </h4>
+    <f:comment>Scheduler Info Panel</f:comment>
+    <div class="callout callout-{f:if(condition: schedulerInfo.configured, then: '{f:if(condition: schedulerInfo.disabled, then: \'warning\', else: \'success\')}', else: 'warning')} mb-4">
+        <h4 class="callout-title">Scheduler Task</h4>
         <div class="callout-body">
+            <f:if condition="{schedulerInfo.configured}">
+                <f:then>
+                    <f:if condition="{schedulerInfo.disabled}">
+                        <f:then>
+                            <span class="badge badge-warning">Disabled</span>
+                        </f:then>
+                        <f:else>
+                            <span class="badge badge-success">Active</span>
+                        </f:else>
+                    </f:if>
+                    <f:if condition="{schedulerInfo.lastRun}">
+                        <div style="display: inline-block; margin-inline-start: 1ch">Last run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.lastRun}</f:format.date></div>
+                    </f:if>
+                    <f:if condition="{schedulerInfo.nextRun}">
+                        <div style="display: inline-block; margin-inline-start: 1ch">Next run: <f:format.date format="Y-m-d H:i:s">{schedulerInfo.nextRun}</f:format.date></div>
+                    </f:if>
+                </f:then>
+                <f:else>
+                    <span class="badge badge-warning">Not configured</span>
+                    <f:if condition="{schedulerUrl}">
+                        <br/>
+                        <a href="{schedulerUrl}" class="btn btn-sm btn-default mt-2">
+                            <core:icon identifier="actions-add" /> Configure Scheduler Task
+                        </a>
+                    </f:if>
+                </f:else>
+            </f:if>
+        </div>
+    </div>
+
+    <f:comment>Webhook Notifications Panel (collapsible - open when not configured)</f:comment>
+    <details class="callout callout-info mb-4"{f:if(condition: '!{webhookSettings.url}', then: ' open')}>
+        <summary class="callout-title" style="cursor: pointer;">
+            <core:icon identifier="actions-bell" /> Webhook Notifications
+            <f:if condition="{webhookSettings.url}">
+                <f:then>
+                    <span class="badge badge-success ms-2">Configured</span>
+                </f:then>
+                <f:else>
+                    <span class="badge badge-warning ms-2">Not configured</span>
+                </f:else>
+            </f:if>
+        </summary>
+        <div class="callout-body mt-3">
             <form id="webhookSettingsForm" method="post" action="{saveWebhookUrl}">
                 <div class="row">
                     <div class="col-md-8">
@@ -307,7 +315,7 @@
                 </details>
             </div>
         </div>
-    </div>
+    </details>
 
 </div>
 </f:section>

@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateBulkActions() {
         const checked = document.querySelectorAll('.sender-checkbox:checked');
         if (bulkActions) {
-            bulkActions.style.display = checked.length > 0 ? 'inline' : 'none';
+            bulkActions.style.visibility = checked.length > 0 ? 'visible' : 'hidden';
         }
     }
 
