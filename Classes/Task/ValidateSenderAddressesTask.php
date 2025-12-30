@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Hn\MailSender\Task;
 
-use Hn\MailSender\Service\DefaultSenderImportService;
+use Hn\MailSender\Service\SenderAddressImportService;
 use Hn\MailSender\Service\ValidationService;
 use Hn\MailSender\Service\WebhookNotificationService;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -26,9 +26,9 @@ class ValidateSenderAddressesTask extends AbstractTask
      */
     public function execute(): bool
     {
-        // Ensure default sender from TYPO3 configuration exists
-        $defaultSenderImportService = GeneralUtility::makeInstance(DefaultSenderImportService::class);
-        $defaultSenderImportService->ensureDefaultSenderExists();
+        // Import sender addresses from all configured providers
+        $senderAddressImportService = GeneralUtility::makeInstance(SenderAddressImportService::class);
+        $senderAddressImportService->importFromAllProviders();
 
         $validationService = GeneralUtility::makeInstance(ValidationService::class);
         $connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);

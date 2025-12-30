@@ -13,6 +13,8 @@ services:
   _instanceof:
     Hn\MailSender\Validation\SenderAddressValidatorInterface:
       tags: ['mail_sender.validator']
+    Hn\MailSender\Import\SenderAddressSourceProviderInterface:
+      tags: ['mail_sender.source_provider']
 
   # Validation Service with tagged iterator
   Hn\MailSender\Service\ValidationService:
@@ -21,9 +23,11 @@ services:
       $validators: !tagged_iterator mail_sender.validator
       $emlParserService: '@Hn\MailSender\Service\EmlParserService'
 
-  # Default Sender Import Service (public for scheduler task access)
-  Hn\MailSender\Service\DefaultSenderImportService:
+  # Sender Address Import Service (public for scheduler task access)
+  Hn\MailSender\Service\SenderAddressImportService:
     public: true
+    arguments:
+      $sourceProviders: !tagged_iterator mail_sender.source_provider
 
   # Backend Module Controller
   Hn\MailSender\Controller\MailSenderController:

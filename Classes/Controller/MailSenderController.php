@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Hn\MailSender\Controller;
 
-use Hn\MailSender\Service\DefaultSenderImportService;
+use Hn\MailSender\Service\SenderAddressImportService;
 use Hn\MailSender\Service\ValidationService;
 use Hn\MailSender\Service\WebhookNotificationService;
 use Psr\Http\Message\ResponseInterface;
@@ -36,7 +36,7 @@ class MailSenderController
         private readonly ValidationService $validationService,
         private readonly FlashMessageService $flashMessageService,
         private readonly ConnectionPool $connectionPool,
-        private readonly DefaultSenderImportService $defaultSenderImportService,
+        private readonly SenderAddressImportService $senderAddressImportService,
         private readonly WebhookNotificationService $webhookNotificationService,
     ) {
     }
@@ -46,8 +46,8 @@ class MailSenderController
      */
     public function indexAction(ServerRequestInterface $request): ResponseInterface
     {
-        // Ensure default sender from TYPO3 configuration exists
-        $this->defaultSenderImportService->ensureDefaultSenderExists();
+        // Import sender addresses from all configured providers
+        $this->senderAddressImportService->importFromAllProviders();
 
         $moduleTemplate = $this->moduleTemplateFactory->create($request);
 
