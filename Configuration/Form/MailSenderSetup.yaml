@@ -1,38 +1,18 @@
+# Mail Sender Form Editor Configuration
+#
+# This configuration integrates validated sender addresses into the TYPO3 form editor.
+# The sender address select options are injected dynamically via the
+# ConfigurationServiceDecorator class, which modifies the form editor's
+# prototype configuration at runtime.
+#
+# The FormEngine configuration below handles the content element (tt_content)
+# form editing in the page module.
 TYPO3:
   CMS:
     Form:
       prototypes:
         standard:
-          formEditor:
-            # Add our extension's partials to the form editor's partial root paths
-            formEditorFluidConfiguration:
-              partialRootPaths:
-                100: 'EXT:mail_sender/Resources/Private/Backend/Partials/FormEditor/'
-            # Register the custom partial for SenderAddressEditor
-            formEditorPartials:
-              Inspector-SenderAddressEditor: 'Inspector/SenderAddressEditor'
-
-          formElementsDefinition:
-            Form:
-              formEditor:
-                propertyCollections:
-                  finishers:
-                    # Override EmailToSender finisher (index 10)
-                    10:
-                      editors:
-                        500:
-                          identifier: senderAddress
-                          templateName: Inspector-SenderAddressEditor
-                          propertyPath: options.senderAddress
-                    # Override EmailToReceiver finisher (index 20)
-                    20:
-                      editors:
-                        500:
-                          identifier: senderAddress
-                          templateName: Inspector-SenderAddressEditor
-                          propertyPath: options.senderAddress
-
-          # Override FormEngine configuration for finishers
+          # Override FormEngine configuration for finishers (used in page module tt_content editing)
           finishersDefinition:
             EmailToSender:
               FormEngine:
