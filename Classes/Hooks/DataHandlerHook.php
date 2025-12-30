@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Hn\MailSender\Hooks;
 
 use Hn\MailSender\Service\ValidationService;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -14,8 +16,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Automatically validates sender addresses when they are created or updated.
  * Triggers validation if the sender_address field has changed.
  */
-class DataHandlerHook
+class DataHandlerHook implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     private const TABLE_NAME = 'tx_mailsender_address';
 
     /**
@@ -74,10 +78,9 @@ class DataHandlerHook
             $validationService->validateSenderAddress($uid);
         } catch (\Throwable $e) {
             // Log error but don't break the save operation
-            GeneralUtility::sysLog(
-                'Mail Sender validation failed for UID ' . $uid . ': ' . $e->getMessage(),
-                'mail_sender',
-                GeneralUtility::SYSLOG_SEVERITY_WARNING
+            $this->logger?->warning(
+                'Mail Sender validation failed for UID {uid}: {message}',
+                ['uid' => $uid, 'message' => $e->getMessage(), 'exception' => $e]
             );
         }
     }

@@ -60,6 +60,9 @@
         ],
         "test:functional": [
             "paratest -c phpunit.xml.dist"
+        ],
+        "build:ter": [
+            "bash Build/build-ter.sh"
         ]
     },
     "config": {

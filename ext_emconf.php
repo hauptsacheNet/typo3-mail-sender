@@ -17,4 +17,9 @@ $EM_CONF[$_EXTKEY] = [
         'conflicts' => [],
         'suggests' => [],
     ],
+    'autoload' => [
+        'psr-4' => [
+            'Hn\\MailSender\\' => 'Classes/',
+        ],
+    ],
 ];

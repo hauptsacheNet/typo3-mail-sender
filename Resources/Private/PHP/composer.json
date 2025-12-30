@@ -1,0 +1,20 @@
+{
+    "name": "hn/mail-sender-libraries",
+    "description": "Bundled libraries for mail_sender extension in non-composer TYPO3 installations",
+    "require": {
+        "mika56/spfcheck": "^3.0",
+        "zbateson/mail-mime-parser": "^3.0"
+    },
+    "replace": {
+        "guzzlehttp/psr7": "*",
+        "psr/log": "*",
+        "psr/http-message": "*",
+        "symfony/http-foundation": "*",
+        "symfony/polyfill-php80": "*"
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "classmap-authoritative": true
+    }
+}
