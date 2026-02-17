@@ -25,7 +25,8 @@
     "require-dev": {
         "typo3/testing-framework": "^9.2.0",
         "typo3/cms-install": "^13.4",
-        "brianium/paratest": "^7.11"
+        "brianium/paratest": "^7.11",
+        "typo3/cms-form": "^13.4"
     },
     "conflict": {
         "symfony/dependency-injection": "7.4.0"

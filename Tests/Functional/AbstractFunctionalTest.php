@@ -23,6 +23,13 @@ abstract class AbstractFunctionalTest extends FunctionalTestCase
     protected ConnectionPool $connectionPool;
 
     /**
+     * Core extensions to load (form is needed for ConfigurationServiceDecorator DI)
+     */
+    protected array $coreExtensionsToLoad = [
+        'form',
+    ];
+
+    /**
      * Test extensions to load
      */
     protected array $testExtensionsToLoad = [

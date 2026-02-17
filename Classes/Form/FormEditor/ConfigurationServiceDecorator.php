@@ -77,11 +77,30 @@ class ConfigurationServiceDecorator extends ConfigurationService
 
     /**
      * Add existing sender addresses from the current form definition
-     * that are not in the validated list (to prevent data loss)
+     * that are not in the validated list (to prevent data loss and to
+     * ensure HMAC validation passes during save).
+     *
+     * TYPO3's form framework validates SingleSelectEditor values against
+     * the selectOptions list. If a value is not in selectOptions, it falls
+     * through to HMAC validation, which fails for finisher option properties
+     * (TYPO3 does not generate HMACs for them). To prevent this, we must
+     * ensure that any existing sender address in the form definition is
+     * always present in selectOptions.
      */
     private function addExistingSenderAddresses(array $selectOptions): array
     {
         $formDefinition = $this->loadCurrentFormDefinition();
+
+        if ($formDefinition === null) {
+            // During save (AJAX POST), loading the persisted form may fail because
+            // Extbase/TypoScript configuration is not fully available. Fall back to
+            // parsing the submitted form definition from the request body so that
+            // its sender address values are included in selectOptions. Without this,
+            // TYPO3's CreatablePropertyCollectionElementPropertiesValidator rejects
+            // the value with "No hmac found for property options.senderAddress".
+            $formDefinition = $this->parseSubmittedFormDefinition();
+        }
+
         if ($formDefinition === null) {
             return $selectOptions;
         }
@@ -149,6 +168,38 @@ class ConfigurationServiceDecorator extends ConfigurationService
                 $typoScriptSettings
             );
         } catch (\Exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Parse the submitted form definition from the request body.
+     *
+     * During save, the form editor sends the form definition as a JSON string
+     * in the request body (field "formDefinition"). We parse it to extract
+     * sender address values so they can be included in selectOptions.
+     */
+    private function parseSubmittedFormDefinition(): ?array
+    {
+        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
+        if (!$request instanceof ServerRequestInterface) {
+            return null;
+        }
+
+        $parsedBody = $request->getParsedBody();
+        if (!is_array($parsedBody)) {
+            return null;
+        }
+
+        $formDefinitionJson = $parsedBody['formDefinition'] ?? null;
+        if ($formDefinitionJson === null || !is_string($formDefinitionJson)) {
+            return null;
+        }
+
+        try {
+            $formDefinition = json_decode($formDefinitionJson, true, 512, JSON_THROW_ON_ERROR);
+            return is_array($formDefinition) ? $formDefinition : null;
+        } catch (\JsonException) {
             return null;
         }
     }
