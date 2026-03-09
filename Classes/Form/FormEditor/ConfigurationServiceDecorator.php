@@ -6,14 +6,11 @@ namespace Hn\MailSender\Form\FormEditor;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireDecorated;
-use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface as ExtbaseConfigurationManagerInterface;
 use TYPO3\CMS\Form\Domain\Configuration\ConfigurationService;
-use TYPO3\CMS\Form\Mvc\Configuration\ConfigurationManagerInterface as ExtFormConfigurationManagerInterface;
 use TYPO3\CMS\Form\Mvc\Persistence\FormPersistenceManagerInterface;
-use TYPO3\CMS\Form\Service\TranslationService;
 
 /**
  * Decorator for the Form ConfigurationService that injects
@@ -23,38 +20,15 @@ use TYPO3\CMS\Form\Service\TranslationService;
  * addresses instead of a free text field.
  */
 #[AsDecorator(decorates: ConfigurationService::class)]
-class ConfigurationServiceDecorator extends ConfigurationService
+class ConfigurationServiceDecorator
 {
-    private ConfigurationService $inner;
-    private SenderAddressOptionsProvider $optionsProvider;
-    private FormPersistenceManagerInterface $formPersistenceManager;
-    protected ExtbaseConfigurationManagerInterface $extbaseConfigurationManager;
-
     public function __construct(
         #[AutowireDecorated]
-        ConfigurationService $inner,
-        SenderAddressOptionsProvider $optionsProvider,
-        FormPersistenceManagerInterface $formPersistenceManager,
-        ExtbaseConfigurationManagerInterface $extbaseConfigurationManager,
-        ExtFormConfigurationManagerInterface $extFormConfigurationManager,
-        TranslationService $translationService,
-        #[Autowire(service: 'cache.assets')]
-        FrontendInterface $assetsCache,
-        #[Autowire(service: 'cache.runtime')]
-        FrontendInterface $runtimeCache,
-    ) {
-        parent::__construct(
-            $extbaseConfigurationManager,
-            $extFormConfigurationManager,
-            $translationService,
-            $assetsCache,
-            $runtimeCache
-        );
-        $this->inner = $inner;
-        $this->optionsProvider = $optionsProvider;
-        $this->formPersistenceManager = $formPersistenceManager;
-        $this->extbaseConfigurationManager = $extbaseConfigurationManager;
-    }
+        private ConfigurationService $inner,
+        private SenderAddressOptionsProvider $optionsProvider,
+        private FormPersistenceManagerInterface $formPersistenceManager,
+        private ExtbaseConfigurationManagerInterface $extbaseConfigurationManager,
+    ) {}
 
     /**
      * Get the prototype configuration with injected sender address options
@@ -73,6 +47,14 @@ class ConfigurationServiceDecorator extends ConfigurationService
         $configuration = $this->injectSenderAddressOptions($configuration, $senderAddressOptions);
 
         return $configuration;
+    }
+
+    /**
+     * Delegate all other method calls to the inner service.
+     */
+    public function __call(string $name, array $arguments): mixed
+    {
+        return $this->inner->$name(...$arguments);
     }
 
     /**
@@ -132,22 +114,23 @@ class ConfigurationServiceDecorator extends ConfigurationService
         }
 
         try {
-            // Get form settings from extbase configuration manager
-            $formSettings = $this->extbaseConfigurationManager->getConfiguration(
-                ExtbaseConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-                'form'
-            ) ?? [];
+            // TYPO3 v13 added $formSettings and $typoScriptSettings parameters to load()
+            if ((new Typo3Version())->getMajorVersion() >= 13) {
+                $formSettings = $this->extbaseConfigurationManager->getConfiguration(
+                    ExtbaseConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+                    'form'
+                ) ?? [];
+                $typoScriptSettings = $this->extbaseConfigurationManager->getConfiguration(
+                    ExtbaseConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
+                ) ?? [];
+                return $this->formPersistenceManager->load(
+                    $formPersistenceIdentifier,
+                    $formSettings,
+                    $typoScriptSettings
+                );
+            }
 
-            // Get TypoScript settings
-            $typoScriptSettings = $this->extbaseConfigurationManager->getConfiguration(
-                ExtbaseConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
-            ) ?? [];
-
-            return $this->formPersistenceManager->load(
-                $formPersistenceIdentifier,
-                $formSettings,
-                $typoScriptSettings
-            );
+            return $this->formPersistenceManager->load($formPersistenceIdentifier);
         } catch (\Exception) {
             return null;
         }
@@ -205,6 +188,4 @@ class ConfigurationServiceDecorator extends ConfigurationService
 
         return $configuration;
     }
-
-    // All other public methods are inherited from ConfigurationService
 }
