@@ -12,9 +12,9 @@
     ],
     "require": {
         "php": "^8.1.0",
-        "typo3/cms-backend": "^13.4",
-        "typo3/cms-core": "^13.4",
-        "typo3/cms-scheduler": "^13.4",
+        "typo3/cms-backend": "^12.4 || ^13.4",
+        "typo3/cms-core": "^12.4 || ^13.4",
+        "typo3/cms-scheduler": "^12.4 || ^13.4",
         "mika56/spfcheck": "^3.0",
         "zbateson/mail-mime-parser": "^3.0"
     },
@@ -23,9 +23,9 @@
         "typo3/cms-form": "For form finisher integration with validated sender address dropdown"
     },
     "require-dev": {
-        "typo3/testing-framework": "^9.2.0",
-        "typo3/cms-install": "^13.4",
-        "brianium/paratest": "^7.11"
+        "typo3/testing-framework": "^8.2 || ^9.2",
+        "typo3/cms-install": "^12.4 || ^13.4",
+        "brianium/paratest": "^7.0"
     },
     "conflict": {
         "symfony/dependency-injection": "7.4.0"

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Hn\MailSender\Form\FormEditor;
 
 use Doctrine\DBAL\ArrayParameterType;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -63,7 +64,7 @@ class SenderAddressOptionsProvider
                 $queryBuilder->expr()->eq('deleted', 0),
                 $queryBuilder->expr()->in(
                     'validation_status',
-                    $queryBuilder->createNamedParameter(['valid', 'warning'], ArrayParameterType::STRING)
+                    $queryBuilder->createNamedParameter(['valid', 'warning'], class_exists(ArrayParameterType::class) ? ArrayParameterType::STRING : Connection::PARAM_STR_ARRAY)
                 )
             )
             ->orderBy('sender_name')

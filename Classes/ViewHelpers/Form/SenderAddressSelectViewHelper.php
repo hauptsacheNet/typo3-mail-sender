@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Hn\MailSender\ViewHelpers\Form;
 
+use Doctrine\DBAL\ArrayParameterType;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractTagBasedViewHelper;
@@ -87,7 +89,7 @@ class SenderAddressSelectViewHelper extends AbstractTagBasedViewHelper
                 $queryBuilder->expr()->eq('deleted', 0),
                 $queryBuilder->expr()->in(
                     'validation_status',
-                    $queryBuilder->createNamedParameter($allowedStatuses, \Doctrine\DBAL\ArrayParameterType::STRING)
+                    $queryBuilder->createNamedParameter($allowedStatuses, class_exists(ArrayParameterType::class) ? ArrayParameterType::STRING : Connection::PARAM_STR_ARRAY)
                 )
             )
             ->orderBy('sender_name')
