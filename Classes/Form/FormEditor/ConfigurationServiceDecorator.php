@@ -6,11 +6,15 @@ namespace Hn\MailSender\Form\FormEditor;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireDecorated;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface as ExtbaseConfigurationManagerInterface;
 use TYPO3\CMS\Form\Domain\Configuration\ConfigurationService;
+use TYPO3\CMS\Form\Mvc\Configuration\ConfigurationManagerInterface as ExtFormConfigurationManagerInterface;
 use TYPO3\CMS\Form\Mvc\Persistence\FormPersistenceManagerInterface;
+use TYPO3\CMS\Form\Service\TranslationService;
 
 /**
  * Decorator for the Form ConfigurationService that injects
@@ -20,7 +24,7 @@ use TYPO3\CMS\Form\Mvc\Persistence\FormPersistenceManagerInterface;
  * addresses instead of a free text field.
  */
 #[AsDecorator(decorates: ConfigurationService::class)]
-class ConfigurationServiceDecorator
+class ConfigurationServiceDecorator extends ConfigurationService
 {
     public function __construct(
         #[AutowireDecorated]
@@ -28,7 +32,27 @@ class ConfigurationServiceDecorator
         private SenderAddressOptionsProvider $optionsProvider,
         private FormPersistenceManagerInterface $formPersistenceManager,
         private ExtbaseConfigurationManagerInterface $extbaseConfigurationManager,
-    ) {}
+        ExtFormConfigurationManagerInterface $extFormConfigurationManager,
+        TranslationService $translationService,
+        #[Autowire(service: 'cache.assets')]
+        FrontendInterface $assetsCache,
+        #[Autowire(service: 'cache.runtime')]
+        FrontendInterface $runtimeCache,
+    ) {
+        if ((new Typo3Version())->getMajorVersion() >= 13) {
+            // v13: constructor takes 5 parameters
+            parent::__construct(
+                $extbaseConfigurationManager,
+                $extFormConfigurationManager,
+                $translationService,
+                $assetsCache,
+                $runtimeCache
+            );
+        } else {
+            // v12: constructor takes only the form ConfigurationManagerInterface
+            parent::__construct($extFormConfigurationManager);
+        }
+    }
 
     /**
      * Get the prototype configuration with injected sender address options
@@ -47,14 +71,6 @@ class ConfigurationServiceDecorator
         $configuration = $this->injectSenderAddressOptions($configuration, $senderAddressOptions);
 
         return $configuration;
-    }
-
-    /**
-     * Delegate all other method calls to the inner service.
-     */
-    public function __call(string $name, array $arguments): mixed
-    {
-        return $this->inner->$name(...$arguments);
     }
 
     /**
