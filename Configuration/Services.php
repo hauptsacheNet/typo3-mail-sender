@@ -15,20 +15,19 @@ return static function (ContainerConfigurator $configurator, ContainerBuilder $c
         return;
     }
 
-    $services = $configurator->services()
-        ->defaults()
-        ->autowire(true)
-        ->autoconfigure(true)
-        ->private();
-
-    $major = (new Typo3Version())->getMajorVersion();
-
-    if ($major >= 13) {
-        $services->set(ConfigurationServiceDecoratorV13::class);
+    $majorVersion = (new Typo3Version())->getMajorVersion();
+    if ($majorVersion >= 13) {
+        $containerBuilder->register(ConfigurationServiceDecoratorV13::class)
+            ->setAutowired(true)
+            ->setAutoconfigured(true)
+            ->setPublic(false);
         $containerBuilder->setAlias(ConfigurationService::class, ConfigurationServiceDecoratorV13::class)
             ->setPublic(true);
     } else {
-        $services->set(ConfigurationServiceDecoratorV12::class);
+        $containerBuilder->register(ConfigurationServiceDecoratorV12::class)
+            ->setAutowired(true)
+            ->setAutoconfigured(true)
+            ->setPublic(false);
         $containerBuilder->setAlias(ConfigurationService::class, ConfigurationServiceDecoratorV12::class)
             ->setPublic(true);
     }
