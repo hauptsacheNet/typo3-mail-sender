@@ -23,9 +23,9 @@ class ConfigurationServiceDecoratorV13 extends ConfigurationService
     use ConfigurationServiceDecoratorTrait;
 
     public function __construct(
-        private SenderAddressOptionsProvider $optionsProvider,
-        private FormPersistenceManagerInterface $formPersistenceManager,
-        private ExtbaseConfigurationManagerInterface $extbaseConfigurationManager,
+        protected SenderAddressOptionsProvider $optionsProvider,
+        protected FormPersistenceManagerInterface $formPersistenceManager,
+        protected ExtbaseConfigurationManagerInterface $extbaseConfigurationManager,
         ExtFormConfigurationManagerInterface $extFormConfigurationManager,
         TranslationService $translationService,
         #[Autowire(service: 'cache.assets')]
