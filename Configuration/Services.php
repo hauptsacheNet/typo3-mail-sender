@@ -26,10 +26,10 @@ return static function (ContainerConfigurator $configurator, ContainerBuilder $c
     if ($major >= 13) {
         $services->set(ConfigurationServiceDecoratorV13::class);
         $containerBuilder->setAlias(ConfigurationService::class, ConfigurationServiceDecoratorV13::class)
-            ->setPublic(false);
+            ->setPublic(true);
     } else {
         $services->set(ConfigurationServiceDecoratorV12::class);
         $containerBuilder->setAlias(ConfigurationService::class, ConfigurationServiceDecoratorV12::class)
-            ->setPublic(false);
+            ->setPublic(true);
     }
 };
