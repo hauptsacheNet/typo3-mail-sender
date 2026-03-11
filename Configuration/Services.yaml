@@ -44,6 +44,10 @@ services:
         command: 'mail:sender:validate'
         description: 'Validate email sender addresses'
 
+  # Webhook Notification Service (public for scheduler task access via makeInstance)
+  Hn\MailSender\Service\WebhookNotificationService:
+    public: true
+
   # Status Report Provider
   Hn\MailSender\Report\MailSenderStatusProvider:
     tags:
