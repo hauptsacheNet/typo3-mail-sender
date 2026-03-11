@@ -10,8 +10,11 @@ use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Form\Domain\Configuration\ConfigurationService;
 
 return static function (ContainerConfigurator $configurator, ContainerBuilder $containerBuilder): void {
-    // Only register the decorator if the Form extension is available
-    if (!class_exists(ConfigurationService::class)) {
+    // Only register the decorator if the Form extension is active.
+    // We check the container builder because ExtensionManagementUtility is not
+    // yet initialized during container compilation. EXT:form's Services.yaml
+    // registers ConfigurationService before this file runs.
+    if (!$containerBuilder->hasDefinition(ConfigurationService::class)) {
         return;
     }
 

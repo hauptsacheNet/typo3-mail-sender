@@ -13,6 +13,10 @@ use TYPO3\CMS\Form\Domain\Configuration\ConfigurationService;
 
 class ConfigurationServiceTest extends AbstractFunctionalTest
 {
+    protected array $coreExtensionsToLoad = [
+        'typo3/cms-form'
+    ];
+
     public function testConfigurationServiceResolvesToCorrectDecoratorForCurrentTypo3Version(): void
     {
         $majorVersion = (new Typo3Version())->getMajorVersion();
