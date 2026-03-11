@@ -48,7 +48,7 @@ jobs:
       - name: Upload zip as build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ter-package
+          name: mail_sender_${{ steps.version.outputs.version }}
           path: dist/*.zip
 
       - name: Attach zip to GitHub release
@@ -64,7 +64,7 @@ jobs:
           RELEASE_COMMENT: ${{ github.event.release.body }}
         run: |
           vendor/bin/tailor ter:publish \
-            --artefact "dist/mail_sender_${{ steps.version.outputs.version }}.zip" \
+            --path .build/mail_sender \
             --comment "$RELEASE_COMMENT" \
             "${{ steps.version.outputs.version }}" \
             mail_sender
