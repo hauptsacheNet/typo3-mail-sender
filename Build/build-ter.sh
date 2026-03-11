@@ -73,9 +73,6 @@ ZIP_FILE="$DIST_DIR/${EXTENSION_KEY}_${VERSION}.zip"
 echo "Creating zip file: $ZIP_FILE"
 zip -r "$ZIP_FILE" . -x "*.git*"
 
-# Clean up build directory
-rm -rf "$BUILD_DIR"
-
 echo ""
 echo "TER package created successfully!"
 echo "  File: $ZIP_FILE"
