@@ -4,9 +4,10 @@ defined('TYPO3') or die();
 
 // Load bundled libraries autoloader for non-composer installations (TER)
 // In composer mode, these classes are already autoloaded via the main autoloader
-if (!\TYPO3\CMS\Core\Core\Environment::isComposerMode()) {
-    require_once \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('mail_sender')
-        . 'Resources/Private/PHP/vendor/autoload.php';
+$bundledAutoloader = \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath('mail_sender')
+    . 'Resources/Private/PHP/vendor/autoload.php';
+if (!\TYPO3\CMS\Core\Core\Environment::isComposerMode() && file_exists($bundledAutoloader)) {
+    require_once $bundledAutoloader;
 }
 
 // Register DataHandler hook for automatic validation on save

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Hn\MailSender\Task;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Hn\MailSender\Service\SenderAddressImportService;
 use Hn\MailSender\Service\ValidationService;
 use Hn\MailSender\Service\WebhookNotificationService;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Scheduler\Task\AbstractTask;
@@ -141,7 +143,7 @@ class ValidateSenderAddressesTask extends AbstractTask
                         $queryBuilder->expr()->eq('deleted', 0),
                         $queryBuilder->expr()->in('validation_status', $queryBuilder->createNamedParameter(
                             ['invalid', 'warning'],
-                            \Doctrine\DBAL\ArrayParameterType::STRING
+                            class_exists(ArrayParameterType::class) ? ArrayParameterType::STRING : Connection::PARAM_STR_ARRAY
                         ))
                     )
                     ->executeQuery()

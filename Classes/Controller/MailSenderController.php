@@ -17,6 +17,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
+use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Mail\MailMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
@@ -102,7 +103,7 @@ class MailSenderController
             ->setHref($newUrl)
             ->setTitle('Add New Sender Address')
             ->setShowLabelText(true)
-            ->setIcon($iconFactory->getIcon('actions-add', IconSize::SMALL));
+            ->setIcon($iconFactory->getIcon('actions-add', class_exists(IconSize::class) ? IconSize::SMALL : Icon::SIZE_SMALL));
         $buttonBar->addButton($newButton, ButtonBar::BUTTON_POSITION_LEFT, 1);
 
         $moduleTemplate->assignMultiple([

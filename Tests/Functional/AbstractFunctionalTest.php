@@ -22,6 +22,9 @@ abstract class AbstractFunctionalTest extends FunctionalTestCase
     protected Context $context;
     protected ConnectionPool $connectionPool;
 
+    protected array $coreExtensionsToLoad = [
+        'typo3/cms-form'
+    ];
     /**
      * Test extensions to load
      */

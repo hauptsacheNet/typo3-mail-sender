@@ -8,6 +8,21 @@ jobs:
   functional-tests:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php-version: '8.1'
+            typo3-version: '^12.4'
+          - php-version: '8.3'
+            typo3-version: '^12.4'
+          - php-version: '8.3'
+            typo3-version: '^13.4'
+          - php-version: '8.4'
+            typo3-version: '^13.4'
+
+    name: PHP ${{ matrix.php-version }} / TYPO3 ${{ matrix.typo3-version }}
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -15,9 +30,12 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php-version }}
           extensions: sqlite3, pdo_sqlite
           coverage: none
+
+      - name: Install TYPO3 version
+        run: composer require --no-update typo3/cms-core:${{ matrix.typo3-version }} typo3/cms-backend:${{ matrix.typo3-version }} typo3/cms-scheduler:${{ matrix.typo3-version }} typo3/cms-install:${{ matrix.typo3-version }}
 
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist

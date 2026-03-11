@@ -7,7 +7,11 @@ services:
   # Auto-register all classes in Classes/ directory
   Hn\MailSender\:
     resource: '../Classes/*'
-    exclude: '../Classes/Domain/Model/*'
+    exclude:
+      - '../Classes/Domain/Model/*'
+      # Version-specific decorators are registered conditionally via Configuration/Services.php
+      - '../Classes/Form/FormEditor/ConfigurationServiceDecoratorV12.php'
+      - '../Classes/Form/FormEditor/ConfigurationServiceDecoratorV13.php'
 
   # Autoconfigure validators with tag
   _instanceof:
