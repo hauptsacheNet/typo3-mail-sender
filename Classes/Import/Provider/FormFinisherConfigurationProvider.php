@@ -9,6 +9,8 @@ use Hn\MailSender\Import\ValueObject\SenderAddress;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
+use TYPO3\CMS\Form\Mvc\Configuration\ConfigurationManagerInterface as ExtFormConfigurationManagerInterface;
+use TYPO3\CMS\Form\Mvc\Persistence\FormPersistenceManagerInterface;
 
 /**
  * Provider that imports sender addresses from form finisher configurations
@@ -22,7 +24,7 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
 {
     public function getSenderAddresses(): array
     {
-        // Skip if Form extension is not available
+        // Skip if the Form extension is not available
         if (!ExtensionManagementUtility::isLoaded('form')) {
             return [];
         }
@@ -37,14 +39,19 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
             return [];
         }
 
-        // Get required configuration for FormPersistenceManager methods
-        $formSettings = $configurationManager->getConfiguration(
+        $extFormConfigurationManager = $this->getExtFormConfigurationManager();
+        if ($extFormConfigurationManager === null) {
+            return [];
+        }
+
+        // Get TypoScript settings for the form extension
+        $typoScriptSettings = $configurationManager->getConfiguration(
             ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
             'form'
         ) ?? [];
-        $typoScriptSettings = $configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_FULL_TYPOSCRIPT
-        ) ?? [];
+
+        // Merge YAML configuration (allowedFileMounts etc.) with TypoScript overrides
+        $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
 
         $addresses = [];
         $seen = [];
@@ -77,32 +84,28 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
         return 'Form Finisher Configuration';
     }
 
-    /**
-     * Get the FormPersistenceManager if available
-     *
-     * Uses late binding to avoid compile-time dependency on the Form extension.
-     */
-    private function getFormPersistenceManager(): ?object
+    private function getFormPersistenceManager(): ?FormPersistenceManagerInterface
     {
         try {
-            // Use string class name to avoid compile-time dependency
-            $className = 'TYPO3\\CMS\\Form\\Mvc\\Persistence\\FormPersistenceManagerInterface';
-            if (!interface_exists($className)) {
-                return null;
-            }
-            return GeneralUtility::makeInstance($className);
+            return GeneralUtility::makeInstance(FormPersistenceManagerInterface::class);
         } catch (\Exception) {
             return null;
         }
     }
 
-    /**
-     * Get the ConfigurationManager
-     */
     private function getConfigurationManager(): ?ConfigurationManagerInterface
     {
         try {
             return GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    private function getExtFormConfigurationManager(): ?ExtFormConfigurationManagerInterface
+    {
+        try {
+            return GeneralUtility::makeInstance(ExtFormConfigurationManagerInterface::class);
         } catch (\Exception) {
             return null;
         }
@@ -113,7 +116,7 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
      *
      * @return string[]
      */
-    private function listAllForms(object $formPersistenceManager, array $formSettings): array
+    private function listAllForms(FormPersistenceManagerInterface $formPersistenceManager, array $formSettings): array
     {
         try {
             $forms = $formPersistenceManager->listForms($formSettings);
@@ -145,15 +148,14 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
 
             // Extract sender address
             $senderAddress = $options['senderAddress'] ?? null;
-            if ($senderAddress !== null && is_string($senderAddress) && $senderAddress !== '') {
-                // Skip form element references like {email}
-                if (!str_starts_with($senderAddress, '{')) {
-                    $senderName = $options['senderName'] ?? '';
-                    if (is_string($senderName) && !str_starts_with($senderName, '{')) {
-                        $addresses[] = new SenderAddress($senderAddress, $senderName);
-                    } else {
-                        $addresses[] = new SenderAddress($senderAddress);
-                    }
+
+            // Skip form element references like {email}
+            if (is_string($senderAddress) && $senderAddress !== '' && !str_starts_with($senderAddress, '{')) {
+                $senderName = $options['senderName'] ?? '';
+                if (is_string($senderName) && !str_starts_with($senderName, '{')) {
+                    $addresses[] = new SenderAddress($senderAddress, $senderName);
+                } else {
+                    $addresses[] = new SenderAddress($senderAddress);
                 }
             }
         }
