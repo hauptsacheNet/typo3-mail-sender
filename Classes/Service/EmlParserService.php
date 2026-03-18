@@ -91,23 +91,57 @@ class EmlParserService
             }
         }
 
-        // Extract DKIM signature (for fallback verification if Authentication-Results not available)
+        // Extract DKIM signatures (for fallback verification if Authentication-Results not available)
         $dkimSignature = $this->parseDkimSignature($message);
+        $dkimSignatures = $this->parseDkimSignatures($message);
 
         return [
             'file_hash' => $fileHash,
             'from' => $from,
             'authentication_results' => $authResults,
             'dkim_signature' => $dkimSignature,
+            'dkim_signatures' => $dkimSignatures,
             'received_chain' => $receivedChain,
         ];
     }
 
     /**
-     * Parse DKIM-Signature header for fallback verification
+     * Parse the first DKIM-Signature header for fallback verification (backward compat)
+     */
+    private function parseDkimSignature($message): ?array
+    {
+        $dkimHeaderObj = $message->getHeader('DKIM-Signature');
+        if ($dkimHeaderObj === null) {
+            return null;
+        }
+        return $this->parseSingleDkimSignatureValue($dkimHeaderObj->getRawValue());
+    }
+
+    /**
+     * Parse ALL DKIM-Signature headers from the message
+     *
+     * @return array<int, array{raw: string, version: string|null, algorithm: string|null, domain: string|null, selector: string|null, headers_signed: array, body_hash: string|null, signature: string|null}>
+     */
+    private function parseDkimSignatures($message): array
+    {
+        $signatures = [];
+        $allHeaders = $message->getAllHeaders();
+        foreach ($allHeaders as $header) {
+            if (strcasecmp($header->getName(), 'DKIM-Signature') === 0) {
+                $parsed = $this->parseSingleDkimSignatureValue($header->getRawValue());
+                if ($parsed !== null) {
+                    $signatures[] = $parsed;
+                }
+            }
+        }
+        return $signatures;
+    }
+
+    /**
+     * Parse a single DKIM-Signature header value
      *
      * @return array{
-     *     raw: string|null,
+     *     raw: string,
      *     version: string|null,
      *     algorithm: string|null,
      *     domain: string|null,
@@ -117,20 +151,10 @@ class EmlParserService
      *     signature: string|null
      * }|null
      */
-    private function parseDkimSignature($message): ?array
+    private function parseSingleDkimSignatureValue(string $rawValue): ?array
     {
-        // Use getRawValue() because zbateson parses structured headers
-        // and getValue() would only return the first parameter value
-        $dkimHeaderObj = $message->getHeader('DKIM-Signature');
-
-        if ($dkimHeaderObj === null) {
-            return null;
-        }
-
-        $dkimHeader = $dkimHeaderObj->getRawValue();
-
         // Normalize whitespace (DKIM headers are often folded)
-        $dkimHeader = preg_replace('/\s+/', ' ', trim($dkimHeader));
+        $dkimHeader = preg_replace('/\s+/', ' ', trim($rawValue));
 
         $result = [
             'raw' => $dkimHeader,
@@ -211,6 +235,7 @@ class EmlParserService
             'raw' => null,
             'spf' => null,
             'dkim' => null,
+            'dkim_results' => [],
             'dmarc' => null,
         ];
 
@@ -221,18 +246,13 @@ class EmlParserService
         $headerNames = ['Authentication-Results', 'ARC-Authentication-Results'];
 
         foreach ($headerNames as $headerName) {
-            // Get header value(s) - zbateson library unfolds multiline headers
-            $headerValue = $message->getHeaderValue($headerName);
-            if ($headerValue !== null) {
-                $authResultsValues[] = $headerValue;
-            }
-
-            // Also try to get additional instances with getHeader
-            // and iterate if there are multiple headers with same name
+            // Use getRawValue() because zbateson parses structured headers
+            // and getValue() would strip parameters (e.g., only return "mx.google.com"
+            // instead of the full Authentication-Results content)
             $allHeaders = $message->getAllHeaders();
             foreach ($allHeaders as $header) {
                 if (strcasecmp($header->getName(), $headerName) === 0) {
-                    $value = $header->getValue();
+                    $value = $header->getRawValue();
                     if ($value !== null && !in_array($value, $authResultsValues, true)) {
                         $authResultsValues[] = $value;
                     }
@@ -262,6 +282,10 @@ class EmlParserService
                     $result['dkim'] = $parsed['dkim'];
                 }
             }
+            // Merge all individual DKIM results
+            if (!empty($parsed['dkim_results'])) {
+                $result['dkim_results'] = array_merge($result['dkim_results'], $parsed['dkim_results']);
+            }
             if ($parsed['dmarc'] !== null) {
                 if ($result['dmarc'] === null || $parsed['dmarc']['result'] === 'pass') {
                     $result['dmarc'] = $parsed['dmarc'];
@@ -283,6 +307,7 @@ class EmlParserService
         $result = [
             'spf' => null,
             'dkim' => null,
+            'dkim_results' => [],
             'dmarc' => null,
         ];
 
@@ -291,6 +316,8 @@ class EmlParserService
 
         // Split by semicolon to get individual method results
         $parts = explode(';', $headerValue);
+
+        $dkimResults = [];
 
         foreach ($parts as $part) {
             $part = trim($part);
@@ -309,7 +336,7 @@ class EmlParserService
                 continue;
             }
 
-            // Parse DKIM result
+            // Parse DKIM result — collect ALL entries
             if (preg_match('/^dkim\s*=\s*(\w+)/i', $part, $matches)) {
                 $dkimResult = strtolower($matches[1]);
                 $details = $this->extractDetails($part);
@@ -324,7 +351,7 @@ class EmlParserService
                     $domain = ltrim($dMatch[1], '@');
                 }
 
-                $result['dkim'] = [
+                $dkimResults[] = [
                     'result' => $dkimResult,
                     'selector' => $selector,
                     'domain' => $domain,
@@ -342,6 +369,19 @@ class EmlParserService
                     'details' => $details,
                 ];
                 continue;
+            }
+        }
+
+        // Store all DKIM results and pick the best one for backward compat
+        $result['dkim_results'] = $dkimResults;
+        if (!empty($dkimResults)) {
+            // Prefer 'pass' result, otherwise take the first
+            $result['dkim'] = $dkimResults[0];
+            foreach ($dkimResults as $dr) {
+                if ($dr['result'] === 'pass') {
+                    $result['dkim'] = $dr;
+                    break;
+                }
             }
         }
 
