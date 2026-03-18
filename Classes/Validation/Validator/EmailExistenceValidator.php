@@ -8,6 +8,7 @@ use Hn\MailSender\Validation\SenderAddressValidatorInterface;
 use Hn\MailSender\Validation\ValueObject\ValidationResult;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
+use TYPO3\CMS\Core\Site\SiteFinder;
 
 /**
  * Email Existence Validator
@@ -28,6 +29,7 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
 
     public function __construct(
         CacheManager $cacheManager,
+        private readonly SiteFinder $siteFinder,
     ) {
         $this->cache = $cacheManager->getCache('hash');
     }
@@ -174,8 +176,8 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
                 ];
             }
 
-            // Send EHLO
-            $hostname = gethostname() ?: 'localhost';
+            // Send EHLO with the TYPO3 site domain as FQDN
+            $hostname = $this->resolveHeloHostname();
             fwrite($socket, "EHLO $hostname\r\n");
             $response = $this->readSmtpResponse($socket);
             if (!str_starts_with($response, '250')) {
@@ -236,6 +238,33 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
         } finally {
             fclose($socket);
         }
+    }
+
+    /**
+     * Resolve the hostname for SMTP EHLO/HELO from the TYPO3 site configuration.
+     * Falls back to SERVER_NAME, then gethostname().
+     */
+    private function resolveHeloHostname(): string
+    {
+        try {
+            $sites = $this->siteFinder->getAllSites();
+            if (!empty($sites)) {
+                $site = reset($sites);
+                $host = $site->getBase()->getHost();
+                if ($host !== '' && $host !== null) {
+                    return $host;
+                }
+            }
+        } catch (\Exception $e) {
+            // SiteFinder may throw if no sites are configured
+        }
+
+        // Fallback to SERVER_NAME (often set by the web server)
+        if (!empty($_SERVER['SERVER_NAME']) && $_SERVER['SERVER_NAME'] !== '0.0.0.0') {
+            return $_SERVER['SERVER_NAME'];
+        }
+
+        return gethostname() ?: 'localhost';
     }
 
     /**
