@@ -148,6 +148,36 @@ EML;
         self::assertCount(2, $authResults['dkim_results']);
     }
 
+    public function testDeduplicatesDkimResultsFromAuthAndArcHeaders(): void
+    {
+        // Same DKIM results in both Authentication-Results and ARC-Authentication-Results
+        $emlContent = <<<EML
+From: sender@leibniz-ipn.de
+To: recipient@example.com
+Subject: Test
+Date: Mon, 01 Dec 2025 12:00:00 +0000
+Authentication-Results: mx.google.com;
+        dkim=pass header.i=@leibniz-ipn.de header.s=20250116rsa header.b=UjOC2xU4;
+        dkim=neutral (no key) header.i=@leibniz-ipn.de
+ARC-Authentication-Results: i=1; mx.google.com;
+        dkim=pass header.i=@leibniz-ipn.de header.s=20250116rsa header.b=UjOC2xU4;
+        dkim=neutral (no key) header.i=@leibniz-ipn.de
+
+Test body
+EML;
+
+        $file = $this->createMock(FileInterface::class);
+        $file->method('getContents')->willReturn($emlContent);
+
+        $result = $this->service->parse($file);
+        $authResults = $result['authentication_results'];
+
+        // Should have exactly 2 DKIM results (not 4 duplicated)
+        self::assertCount(2, $authResults['dkim_results']);
+        self::assertSame('pass', $authResults['dkim_results'][0]['result']);
+        self::assertSame('neutral', $authResults['dkim_results'][1]['result']);
+    }
+
     public function testCanParseEmlWithoutAuthenticationResults(): void
     {
         // Simple EML without authentication headers

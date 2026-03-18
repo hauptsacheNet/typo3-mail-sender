@@ -282,9 +282,23 @@ class EmlParserService
                     $result['dkim'] = $parsed['dkim'];
                 }
             }
-            // Merge all individual DKIM results
+            // Merge all individual DKIM results (deduplicate by result+selector+domain)
             if (!empty($parsed['dkim_results'])) {
-                $result['dkim_results'] = array_merge($result['dkim_results'], $parsed['dkim_results']);
+                foreach ($parsed['dkim_results'] as $newDr) {
+                    $isDuplicate = false;
+                    foreach ($result['dkim_results'] as $existingDr) {
+                        if (($existingDr['result'] ?? '') === ($newDr['result'] ?? '')
+                            && ($existingDr['selector'] ?? '') === ($newDr['selector'] ?? '')
+                            && ($existingDr['domain'] ?? '') === ($newDr['domain'] ?? '')
+                        ) {
+                            $isDuplicate = true;
+                            break;
+                        }
+                    }
+                    if (!$isDuplicate) {
+                        $result['dkim_results'][] = $newDr;
+                    }
+                }
             }
             if ($parsed['dmarc'] !== null) {
                 if ($result['dmarc'] === null || $parsed['dmarc']['result'] === 'pass') {
