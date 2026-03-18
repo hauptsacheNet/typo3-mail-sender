@@ -139,8 +139,8 @@ class SpfValidator implements SenderAddressValidatorInterface
 
         // Check if SMTP is configured
         if (!$this->configurationProvider->isSmtpConfigured()) {
-            return ValidationResult::skipped(
-                'SPF validation skipped: SMTP transport not configured',
+            return ValidationResult::warning(
+                'SPF validation cannot verify sender authorization: SMTP transport not configured. Upload a test email (.eml) for SPF verification.',
                 ['reason' => 'no_smtp_transport']
             );
         }
