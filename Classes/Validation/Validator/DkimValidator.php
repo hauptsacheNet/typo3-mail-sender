@@ -16,8 +16,10 @@ use Hn\MailSender\Validation\ValueObject\ValidationResult;
  * DKIM validation requires the actual email to verify the signature.
  * This validator only works when EML data is available.
  *
- * When no EML file is uploaded, returns a warning prompting the user
- * to upload a test email for complete validation.
+ * When multiple DKIM signatures are present (e.g., RSA + Ed25519),
+ * this validator checks all of them. If the mail server only verified
+ * some signatures, the validator performs its own DNS key lookup for
+ * the remaining ones.
  */
 class DkimValidator implements SenderAddressValidatorInterface
 {
@@ -34,15 +36,21 @@ class DkimValidator implements SenderAddressValidatorInterface
         }
 
         $authResults = $emlData['authentication_results'] ?? [];
-        $dkimResult = $authResults['dkim'] ?? null;
+        $dkimResults = $authResults['dkim_results'] ?? [];
 
-        if ($dkimResult === null) {
-            // Fallback: Try to verify DKIM signature ourselves
-            $dkimSignature = $emlData['dkim_signature'] ?? null;
-            if ($dkimSignature !== null) {
-                return $this->validateFromDkimSignature($dkimSignature, $domain, $emlData);
-            }
+        // Backward compat: wrap singular dkim result if dkim_results is empty
+        if (empty($dkimResults) && !empty($authResults['dkim'])) {
+            $dkimResults = [$authResults['dkim']];
+        }
 
+        // Get all DKIM signatures from the email
+        $dkimSignatures = $emlData['dkim_signatures'] ?? [];
+        if (empty($dkimSignatures) && !empty($emlData['dkim_signature'])) {
+            $dkimSignatures = [$emlData['dkim_signature']];
+        }
+
+        // No DKIM info at all — fallback or warning
+        if (empty($dkimResults) && empty($dkimSignatures)) {
             return ValidationResult::warning(
                 'No DKIM result found in received email',
                 [
@@ -54,11 +62,43 @@ class DkimValidator implements SenderAddressValidatorInterface
             );
         }
 
-        $result = strtolower($dkimResult['result'] ?? '');
-        $selector = $dkimResult['selector'] ?? null;
-        $signingDomain = $dkimResult['domain'] ?? null;
+        // No auth results but we have signatures — do DNS key verification ourselves
+        if (empty($dkimResults) && !empty($dkimSignatures)) {
+            return $this->validateFromSignaturesOnly($dkimSignatures, $domain, $emlData);
+        }
 
-        // Fetch current DKIM key from DNS for drift detection
+        // We have auth results — process them
+        return $this->validateFromAuthResults($dkimResults, $dkimSignatures, $domain, $emlData);
+    }
+
+    /**
+     * Validate when we have Authentication-Results from the mail server.
+     * Also cross-check DKIM signatures that the server didn't verify.
+     */
+    private function validateFromAuthResults(array $dkimResults, array $dkimSignatures, string $domain, array $emlData): ValidationResult
+    {
+        $fileHash = $emlData['file_hash'] ?? '';
+        $hasPass = false;
+        $hasFail = false;
+        $passResult = null;
+
+        foreach ($dkimResults as $dr) {
+            $result = strtolower($dr['result'] ?? '');
+            if ($result === 'pass') {
+                $hasPass = true;
+                $passResult = $dr;
+            } elseif ($result === 'fail') {
+                $hasFail = true;
+            }
+        }
+
+        // Determine the primary result (the passing one, or the first one)
+        $primaryResult = $passResult ?? $dkimResults[0];
+        $primaryStatus = strtolower($primaryResult['result'] ?? '');
+        $selector = $primaryResult['selector'] ?? null;
+        $signingDomain = $primaryResult['domain'] ?? null;
+
+        // Fetch current DKIM key from DNS for drift detection on primary signature
         $currentDkimKey = null;
         $dkimDnsRecord = null;
         if ($selector !== null && $signingDomain !== null) {
@@ -70,51 +110,205 @@ class DkimValidator implements SenderAddressValidatorInterface
         $previousKey = $emlData['previous_validation']['DKIM Validator']['dkim_public_key'] ?? null;
         $dnsChanged = $previousKey !== null && $previousKey !== $currentDkimKey;
 
+        // Check domain alignment
+        $domainAligned = false;
+        if ($signingDomain !== null) {
+            $domainAligned = $signingDomain === $domain
+                || str_ends_with($signingDomain, '.' . $domain)
+                || str_ends_with($domain, '.' . $signingDomain);
+        }
+
+        // Verify DNS keys for signatures the mail server didn't fully verify
+        $uncheckedSignatures = $this->findUncheckedSignatures($dkimResults, $dkimSignatures);
+        $missingKeys = [];
+        $verifiedKeys = [];
+        foreach ($uncheckedSignatures as $sig) {
+            $sigSelector = $sig['selector'] ?? null;
+            $sigDomain = $sig['domain'] ?? null;
+            if ($sigSelector === null || $sigDomain === null) {
+                continue;
+            }
+            $record = $sigSelector . '._domainkey.' . $sigDomain;
+            $key = $this->fetchDkimKey($record);
+            if ($key === null) {
+                $missingKeys[] = $record;
+            } else {
+                $verifiedKeys[] = $record;
+            }
+        }
+
         $details = [
             'source' => 'eml',
-            'eml_file_hash' => $emlData['file_hash'] ?? '',
-            'eml_result' => $result,
+            'eml_file_hash' => $fileHash,
+            'eml_result' => $primaryStatus,
             'dkim_selector' => $selector,
             'dkim_domain' => $signingDomain,
             'dkim_dns_record' => $dkimDnsRecord,
             'dkim_public_key' => $currentDkimKey,
             'dns_changed' => $dnsChanged,
-            'dkim_details' => $dkimResult['details'] ?? [],
+            'dkim_details' => $primaryResult['details'] ?? [],
+            'domain_aligned' => $domainAligned,
+            'all_dkim_results' => $dkimResults,
+            'self_verified_keys' => $verifiedKeys,
+            'missing_keys' => $missingKeys,
         ];
 
-        // Check domain alignment
-        $domainAligned = false;
-        if ($signingDomain !== null) {
-            // Relaxed alignment: signing domain can be subdomain or same as sender domain
-            $domainAligned = $signingDomain === $domain
-                || str_ends_with($signingDomain, '.' . $domain)
-                || str_ends_with($domain, '.' . $signingDomain);
+        // If any result passed, this is valid (with drift/key-removal checks)
+        if ($hasPass) {
+            return $this->handlePassResult($domainAligned, $signingDomain, $domain, $currentDkimKey, $dnsChanged, $details);
         }
-        $details['domain_aligned'] = $domainAligned;
 
-        return match ($result) {
-            'pass' => $this->handlePassResult($domainAligned, $signingDomain, $domain, $currentDkimKey, $dnsChanged, $details),
-            'fail' => ValidationResult::invalid(
+        // No pass — if only fail(s) and no pass, it's invalid
+        if ($hasFail) {
+            return ValidationResult::invalid(
                 'DKIM authentication failed - signature invalid',
                 ['errors' => ['DKIM signature verification failed'], ...$details]
-            ),
-            'neutral' => ValidationResult::warning(
-                'DKIM result neutral - signature not verified',
-                ['warnings' => ['DKIM returned neutral result'], ...$details]
-            ),
-            'none' => ValidationResult::warning(
-                'No DKIM signature found in email',
-                ['warnings' => ['Email was not DKIM signed'], ...$details]
-            ),
-            'temperror', 'permerror' => ValidationResult::warning(
-                'DKIM check encountered an error: ' . $result,
-                ['warnings' => ['DKIM error: ' . $result], ...$details]
-            ),
-            default => ValidationResult::warning(
-                'Unknown DKIM result: ' . $result,
-                ['warnings' => ['Unknown DKIM result'], ...$details]
-            ),
-        };
+            );
+        }
+
+        // No pass, no fail — neutral/none/temperror. Check DNS keys ourselves.
+        if (empty($missingKeys)) {
+            // All DNS keys exist — the mail server just didn't verify them
+            $details['info'] = 'Mail server did not fully verify DKIM signatures, but all DNS keys are present.';
+            return ValidationResult::valid(
+                'DKIM DNS keys verified (mail server reported neutral)',
+                $details
+            );
+        }
+
+        // Some keys missing
+        return ValidationResult::warning(
+            'DKIM result neutral and some DNS keys are missing',
+            [
+                'warnings' => ['DKIM returned neutral result and DNS key(s) missing: ' . implode(', ', $missingKeys)],
+                ...$details,
+            ]
+        );
+    }
+
+    /**
+     * Find DKIM signatures that don't have a matching 'pass' in the auth results.
+     * Matches by selector+domain when available.
+     */
+    private function findUncheckedSignatures(array $dkimResults, array $dkimSignatures): array
+    {
+        // Build a set of selector+domain combos that passed
+        $passedCombos = [];
+        foreach ($dkimResults as $dr) {
+            if (strtolower($dr['result'] ?? '') === 'pass' && !empty($dr['selector']) && !empty($dr['domain'])) {
+                $passedCombos[] = strtolower($dr['selector']) . '/' . strtolower($dr['domain']);
+            }
+        }
+
+        $unchecked = [];
+        foreach ($dkimSignatures as $sig) {
+            $sigSelector = $sig['selector'] ?? null;
+            $sigDomain = $sig['domain'] ?? null;
+            if ($sigSelector === null || $sigDomain === null) {
+                continue;
+            }
+            $combo = strtolower($sigSelector) . '/' . strtolower($sigDomain);
+            if (!in_array($combo, $passedCombos, true)) {
+                $unchecked[] = $sig;
+            }
+        }
+
+        return $unchecked;
+    }
+
+    /**
+     * Validate when we only have DKIM-Signature headers (no Authentication-Results).
+     * Checks DNS for all signatures.
+     */
+    private function validateFromSignaturesOnly(array $dkimSignatures, string $senderDomain, array $emlData): ValidationResult
+    {
+        $fileHash = $emlData['file_hash'] ?? '';
+        $allKeysExist = true;
+        $missingRecords = [];
+        $firstSignature = $dkimSignatures[0];
+        $primarySelector = $firstSignature['selector'] ?? null;
+        $primaryDomain = $firstSignature['domain'] ?? null;
+        $primaryDnsRecord = null;
+        $primaryKey = null;
+
+        foreach ($dkimSignatures as $sig) {
+            $sigDomain = $sig['domain'] ?? null;
+            $sigSelector = $sig['selector'] ?? null;
+            if ($sigDomain === null || $sigSelector === null) {
+                continue;
+            }
+            $dnsRecord = $sigSelector . '._domainkey.' . $sigDomain;
+            $key = $this->fetchDkimKey($dnsRecord);
+            if ($key === null) {
+                $allKeysExist = false;
+                $missingRecords[] = $dnsRecord;
+            }
+            // Track the primary signature's key for drift detection
+            if ($sigSelector === $primarySelector && $sigDomain === $primaryDomain) {
+                $primaryDnsRecord = $dnsRecord;
+                $primaryKey = $key;
+            }
+        }
+
+        // Check domain alignment on primary signature
+        $domainAligned = false;
+        if ($primaryDomain !== null) {
+            $domainAligned = $primaryDomain === $senderDomain
+                || str_ends_with($primaryDomain, '.' . $senderDomain)
+                || str_ends_with($senderDomain, '.' . $primaryDomain);
+        }
+
+        // Check for drift
+        $previousKey = $emlData['previous_validation']['DKIM Validator']['dkim_public_key'] ?? null;
+        $dnsChanged = $previousKey !== null && $previousKey !== $primaryKey;
+
+        $details = [
+            'source' => 'eml_signature',
+            'eml_file_hash' => $fileHash,
+            'dkim_selector' => $primarySelector,
+            'dkim_domain' => $primaryDomain,
+            'dkim_dns_record' => $primaryDnsRecord,
+            'dkim_public_key' => $primaryKey,
+            'dns_changed' => $dnsChanged,
+            'domain_aligned' => $domainAligned,
+            'algorithm' => $firstSignature['algorithm'] ?? null,
+            'headers_signed' => $firstSignature['headers_signed'] ?? [],
+            'all_signatures_count' => count($dkimSignatures),
+            'missing_keys' => $missingRecords,
+        ];
+
+        if (!$allKeysExist) {
+            return ValidationResult::invalid(
+                'DKIM public key not found in DNS for: ' . implode(', ', $missingRecords),
+                [
+                    'errors' => array_map(fn ($r) => 'No DKIM record found at ' . $r, $missingRecords),
+                    'info' => 'The email has DKIM signature(s) but some public key(s) are not published in DNS',
+                    ...$details,
+                ]
+            );
+        }
+
+        if ($dnsChanged) {
+            return ValidationResult::warning(
+                'DKIM key has changed since test email was uploaded',
+                [
+                    'warnings' => ['DKIM public key changed. Upload new test email to verify current configuration.'],
+                    'info' => 'DKIM signature found, but DNS key differs from previous validation.',
+                    ...$details,
+                ]
+            );
+        }
+
+        if (!$domainAligned) {
+            $details['info'] = 'DKIM signed by "' . $primaryDomain . '" (domain alignment is checked by DMARC). Note: Full signature verification not performed.';
+        } else {
+            $details['info'] = 'DKIM signature(s) found, all DNS keys verified. Note: Full signature verification not performed.';
+        }
+
+        return ValidationResult::valid(
+            'DKIM signature(s) present and public key(s) exist in DNS',
+            $details
+        );
     }
 
     /**
@@ -135,97 +329,6 @@ class DkimValidator implements SenderAddressValidatorInterface
         }
 
         return null;
-    }
-
-    /**
-     * Validate DKIM by checking if the signing key exists in DNS
-     *
-     * This is a fallback when Authentication-Results header is not available.
-     * We cannot actually verify the signature (which requires full message canonicalization),
-     * but we can verify that:
-     * 1. The DKIM signature header exists
-     * 2. The public key record exists in DNS
-     * 3. The signing domain aligns with the sender domain
-     */
-    private function validateFromDkimSignature(array $dkimSignature, string $senderDomain, array $emlData): ValidationResult
-    {
-        $signingDomain = $dkimSignature['domain'] ?? null;
-        $selector = $dkimSignature['selector'] ?? null;
-        $fileHash = $emlData['file_hash'] ?? '';
-
-        if ($signingDomain === null || $selector === null) {
-            return ValidationResult::warning(
-                'DKIM signature incomplete - missing domain or selector',
-                [
-                    'warnings' => ['DKIM signature present but missing required fields'],
-                    'source' => 'eml_signature',
-                    'eml_file_hash' => $fileHash,
-                ]
-            );
-        }
-
-        // Check domain alignment
-        $domainAligned = $signingDomain === $senderDomain
-            || str_ends_with($signingDomain, '.' . $senderDomain)
-            || str_ends_with($senderDomain, '.' . $signingDomain);
-
-        // Query DNS for DKIM public key
-        $dkimDnsRecord = $selector . '._domainkey.' . $signingDomain;
-        $currentDkimKey = $this->fetchDkimKey($dkimDnsRecord);
-
-        // Check for drift
-        $previousKey = $emlData['previous_validation']['DKIM Validator']['dkim_public_key'] ?? null;
-        $dnsChanged = $previousKey !== null && $previousKey !== $currentDkimKey;
-
-        $details = [
-            'source' => 'eml_signature',
-            'eml_file_hash' => $fileHash,
-            'dkim_selector' => $selector,
-            'dkim_domain' => $signingDomain,
-            'dkim_dns_record' => $dkimDnsRecord,
-            'dkim_public_key' => $currentDkimKey,
-            'dns_changed' => $dnsChanged,
-            'domain_aligned' => $domainAligned,
-            'algorithm' => $dkimSignature['algorithm'] ?? null,
-            'headers_signed' => $dkimSignature['headers_signed'] ?? [],
-        ];
-
-        if ($currentDkimKey === null) {
-            return ValidationResult::invalid(
-                'DKIM public key not found in DNS',
-                [
-                    'errors' => ['No DKIM record found at ' . $dkimDnsRecord],
-                    'info' => 'The email has a DKIM signature but the public key is not published in DNS',
-                    ...$details,
-                ]
-            );
-        }
-
-        // Key exists - check for drift warning
-        if ($dnsChanged) {
-            return ValidationResult::warning(
-                'DKIM key has changed since test email was uploaded',
-                [
-                    'warnings' => ['DKIM public key changed. Upload new test email to verify current configuration.'],
-                    'info' => 'DKIM signature found, but DNS key differs from previous validation.',
-                    ...$details,
-                ]
-            );
-        }
-
-        // Key exists - we can't verify the signature without full message canonicalization
-        // but the presence of the key indicates DKIM is properly configured
-        // Domain alignment is DMARC's concern, not DKIM's
-        if (!$domainAligned) {
-            $details['info'] = 'DKIM signed by "' . $signingDomain . '" (domain alignment is checked by DMARC). Note: Full signature verification not performed.';
-        } else {
-            $details['info'] = 'DKIM signature found, DNS key verified. Note: Full signature verification not performed.';
-        }
-
-        return ValidationResult::valid(
-            'DKIM signature present and public key exists in DNS',
-            $details
-        );
     }
 
     /**
