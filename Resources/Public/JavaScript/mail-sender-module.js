@@ -44,10 +44,17 @@ document.addEventListener('DOMContentLoaded', function() {
             .map(function(cb) { return cb.value; });
     }
 
+    // Show loading state on a button
+    function showButtonLoading(btn, label) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>' + (label ? ' ' + label : '');
+    }
+
     // Single row actions - Validate
     document.querySelectorAll('.single-validate-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var uid = this.dataset.uid;
+            showButtonLoading(this);
             var form = document.getElementById('validateForm');
             document.getElementById('validateUids').value = uid;
             form.action = validateUrl;
@@ -84,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkValidateBtn.addEventListener('click', function() {
             var uids = getSelectedUids();
             if (uids.length > 0) {
+                showButtonLoading(this, 'Revalidating\u2026');
                 var form = document.getElementById('validateForm');
                 form.innerHTML = '';
                 uids.forEach(function(uid) {
