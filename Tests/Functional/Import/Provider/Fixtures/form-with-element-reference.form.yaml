@@ -1,0 +1,21 @@
+type: Form
+identifier: form-with-element-reference
+label: 'Form with element reference'
+prototypeName: standard
+renderables:
+  -
+    type: Page
+    identifier: page-1
+    label: 'Page 1'
+    renderables:
+      -
+        type: Text
+        identifier: email
+        label: Email
+finishers:
+  -
+    identifier: EmailToSender
+    options:
+      subject: 'Confirmation'
+      senderAddress: '{email}'
+      senderName: '{name}'

@@ -6,6 +6,7 @@ namespace Hn\MailSender\Import\Provider;
 
 use Hn\MailSender\Import\SenderAddressSourceProviderInterface;
 use Hn\MailSender\Import\ValueObject\SenderAddress;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
@@ -39,30 +40,41 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
             return [];
         }
 
-        $extFormConfigurationManager = $this->getExtFormConfigurationManager();
-        if ($extFormConfigurationManager === null) {
-            return [];
+        $majorVersion = (new Typo3Version())->getMajorVersion();
+
+        // In TYPO3 v13+, we need YAML configuration and pass settings to load()
+        // In TYPO3 v12, getYamlConfiguration() does not exist and load() takes only the identifier
+        $formSettings = [];
+        $typoScriptSettings = [];
+
+        if ($majorVersion >= 13) {
+            $extFormConfigurationManager = $this->getExtFormConfigurationManager();
+            if ($extFormConfigurationManager === null) {
+                return [];
+            }
+
+            $typoScriptSettings = $configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+                'form'
+            ) ?? [];
+
+            $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
         }
-
-        // Get TypoScript settings for the form extension
-        $typoScriptSettings = $configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'form'
-        ) ?? [];
-
-        // Merge YAML configuration (allowedFileMounts etc.) with TypoScript overrides
-        $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
 
         $addresses = [];
         $seen = [];
 
         foreach ($this->listAllForms($formPersistenceManager, $formSettings) as $formPersistenceIdentifier) {
             try {
-                $formDefinition = $formPersistenceManager->load(
-                    $formPersistenceIdentifier,
-                    $formSettings,
-                    $typoScriptSettings
-                );
+                if ($majorVersion >= 13) {
+                    $formDefinition = $formPersistenceManager->load(
+                        $formPersistenceIdentifier,
+                        $formSettings,
+                        $typoScriptSettings
+                    );
+                } else {
+                    $formDefinition = $formPersistenceManager->load($formPersistenceIdentifier);
+                }
                 foreach ($this->extractSenderAddresses($formDefinition) as $address) {
                     // Deduplicate within this provider
                     if (!isset($seen[$address->email])) {
