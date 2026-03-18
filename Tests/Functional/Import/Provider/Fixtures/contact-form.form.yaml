@@ -1,0 +1,32 @@
+type: Form
+identifier: contact-form
+label: 'Contact Form'
+prototypeName: standard
+renderables:
+  -
+    type: Page
+    identifier: page-1
+    label: 'Page 1'
+    renderables:
+      -
+        type: Text
+        identifier: name
+        label: Name
+      -
+        type: Text
+        identifier: email
+        label: Email
+finishers:
+  -
+    identifier: EmailToReceiver
+    options:
+      subject: 'Contact form submission'
+      recipientAddress: receiver@example.com
+      senderAddress: sender@example.com
+      senderName: 'Contact Form'
+  -
+    identifier: EmailToSender
+    options:
+      subject: 'Thank you for your message'
+      senderAddress: noreply@example.com
+      senderName: 'My Website'

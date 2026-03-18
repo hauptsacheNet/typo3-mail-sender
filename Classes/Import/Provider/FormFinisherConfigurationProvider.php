@@ -6,6 +6,7 @@ namespace Hn\MailSender\Import\Provider;
 
 use Hn\MailSender\Import\SenderAddressSourceProviderInterface;
 use Hn\MailSender\Import\ValueObject\SenderAddress;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
@@ -34,45 +35,23 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
             return [];
         }
 
-        $configurationManager = $this->getConfigurationManager();
-        if ($configurationManager === null) {
-            return [];
+        $majorVersion = (new Typo3Version())->getMajorVersion();
+
+        if ($majorVersion >= 13) {
+            $formDefinitions = $this->loadAllFormDefinitionsV13($formPersistenceManager);
+        } else {
+            $formDefinitions = $this->loadAllFormDefinitionsV12($formPersistenceManager);
         }
-
-        $extFormConfigurationManager = $this->getExtFormConfigurationManager();
-        if ($extFormConfigurationManager === null) {
-            return [];
-        }
-
-        // Get TypoScript settings for the form extension
-        $typoScriptSettings = $configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'form'
-        ) ?? [];
-
-        // Merge YAML configuration (allowedFileMounts etc.) with TypoScript overrides
-        $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
 
         $addresses = [];
         $seen = [];
 
-        foreach ($this->listAllForms($formPersistenceManager, $formSettings) as $formPersistenceIdentifier) {
-            try {
-                $formDefinition = $formPersistenceManager->load(
-                    $formPersistenceIdentifier,
-                    $formSettings,
-                    $typoScriptSettings
-                );
-                foreach ($this->extractSenderAddresses($formDefinition) as $address) {
-                    // Deduplicate within this provider
-                    if (!isset($seen[$address->email])) {
-                        $addresses[] = $address;
-                        $seen[$address->email] = true;
-                    }
+        foreach ($formDefinitions as $formDefinition) {
+            foreach ($this->extractSenderAddresses($formDefinition) as $address) {
+                if (!isset($seen[$address->email])) {
+                    $addresses[] = $address;
+                    $seen[$address->email] = true;
                 }
-            } catch (\Exception) {
-                // Skip forms that cannot be loaded
-                continue;
             }
         }
 
@@ -93,37 +72,67 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
         }
     }
 
-    private function getConfigurationManager(): ?ConfigurationManagerInterface
-    {
-        try {
-            return GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
-        } catch (\Exception) {
-            return null;
-        }
-    }
-
-    private function getExtFormConfigurationManager(): ?ExtFormConfigurationManagerInterface
-    {
-        try {
-            return GeneralUtility::makeInstance(ExtFormConfigurationManagerInterface::class);
-        } catch (\Exception) {
-            return null;
-        }
-    }
-
     /**
-     * List all form persistence identifiers
+     * Load all form definitions using the TYPO3 v12 API.
      *
-     * @return string[]
+     * In v12, listForms() and load() don't require settings parameters.
+     *
+     * @return array[]
      */
-    private function listAllForms(FormPersistenceManagerInterface $formPersistenceManager, array $formSettings): array
+    private function loadAllFormDefinitionsV12(FormPersistenceManagerInterface $formPersistenceManager): array
     {
         try {
-            $forms = $formPersistenceManager->listForms($formSettings);
-            return array_column($forms, 'persistenceIdentifier');
+            $forms = $formPersistenceManager->listForms();
         } catch (\Exception) {
             return [];
         }
+
+        $definitions = [];
+        foreach (array_column($forms, 'persistenceIdentifier') as $identifier) {
+            try {
+                $definitions[] = $formPersistenceManager->load($identifier);
+            } catch (\Exception) {
+                // Skip forms that cannot be loaded
+            }
+        }
+        return $definitions;
+    }
+
+    /**
+     * Load all form definitions using the TYPO3 v13+ API.
+     *
+     * In v13, listForms() requires YAML formSettings and load() requires
+     * both formSettings and typoScriptSettings.
+     *
+     * @return array[]
+     */
+    private function loadAllFormDefinitionsV13(FormPersistenceManagerInterface $formPersistenceManager): array
+    {
+        $configurationManager = GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
+        $extFormConfigurationManager = GeneralUtility::makeInstance(ExtFormConfigurationManagerInterface::class);
+
+        $typoScriptSettings = $configurationManager->getConfiguration(
+            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+            'form'
+        ) ?? [];
+
+        $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
+
+        try {
+            $forms = $formPersistenceManager->listForms($formSettings);
+        } catch (\Exception) {
+            return [];
+        }
+
+        $definitions = [];
+        foreach (array_column($forms, 'persistenceIdentifier') as $identifier) {
+            try {
+                $definitions[] = $formPersistenceManager->load($identifier, $formSettings, $typoScriptSettings);
+            } catch (\Exception) {
+                // Skip forms that cannot be loaded
+            }
+        }
+        return $definitions;
     }
 
     /**
