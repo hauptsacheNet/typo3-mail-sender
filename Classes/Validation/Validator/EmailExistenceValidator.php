@@ -175,16 +175,17 @@ class EmailExistenceValidator implements SenderAddressValidatorInterface
             }
 
             // Send EHLO
-            fwrite($socket, "EHLO example.com\r\n");
+            $hostname = gethostname() ?: 'localhost';
+            fwrite($socket, "EHLO $hostname\r\n");
             $response = $this->readSmtpResponse($socket);
             if (!str_starts_with($response, '250')) {
                 // Try HELO instead
-                fwrite($socket, "HELO example.com\r\n");
+                fwrite($socket, "HELO $hostname\r\n");
                 $response = $this->readSmtpResponse($socket);
             }
 
-            // Send MAIL FROM
-            fwrite($socket, "MAIL FROM:<test@example.com>\r\n");
+            // Send MAIL FROM with null sender (RFC 5321) to avoid domain policy rejections
+            fwrite($socket, "MAIL FROM:<>\r\n");
             $mailFromResponse = $this->readSmtpResponse($socket);
 
             // Check if MAIL FROM was rejected (e.g., SPF policy rejection)
