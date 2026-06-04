@@ -104,9 +104,37 @@ The extension provides a `SenderEmailAddress` form element that shows a dropdown
 
 ### Running Tests
 
+Functional / unit tests (host PHP + SQLite):
+
 ```bash
 composer test
 ```
+
+#### End-to-end tests (Playwright)
+
+The end-to-end suite drives a real TYPO3 backend with Playwright and verifies
+the three user-facing surfaces against all supported TYPO3 versions (12.4, 13.4,
+14.3):
+
+1. the **ext:form integration** (the validated sender-address dropdown is
+   injected into the form editor and the form can be saved),
+2. the **validation backend module** (lists sender addresses and revalidates),
+3. the **List module** (lists and creates Mail Sender Address records).
+
+```bash
+# Run against the currently installed TYPO3 version
+Build/runTests.sh -s e2e --no-docker
+
+# Run against a specific TYPO3 version (installs it via composer)
+Build/runTests.sh -s e2e -t 12.4 --no-docker
+Build/runTests.sh -s e2e -t 13.4 --no-docker
+Build/runTests.sh -s e2e -t 14.3 --no-docker
+```
+
+The runner sets up an SQLite-backed TYPO3 instance, seeds a validated sender
+address and a form definition, starts the PHP built-in web server and runs the
+Playwright specs in `Build/tests/playwright/`. CI runs the same suite across the
+three versions (see `.github/workflows/tests.yml`).
 
 ### Test Coverage
 
@@ -114,6 +142,7 @@ composer test
 - Record soft-delete and visibility
 - TCA configuration
 - Database schema
+- End-to-end coverage of the form editor, validation module and List module
 
 ## Contributing
 

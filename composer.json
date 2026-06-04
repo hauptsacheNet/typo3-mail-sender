@@ -63,6 +63,12 @@
         "test:functional": [
             "paratest -c phpunit.xml.dist"
         ],
+        "test:e2e": [
+            "bash Build/runTests.sh -s e2e --no-docker"
+        ],
+        "lint": [
+            "bash Build/runTests.sh -s lint"
+        ],
         "build:ter": [
             "bash Build/build-ter.sh"
         ]
