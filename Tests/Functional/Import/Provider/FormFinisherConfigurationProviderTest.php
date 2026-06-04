@@ -224,6 +224,19 @@ class FormFinisherConfigurationProviderTest extends AbstractFunctionalTest
         self::assertIsArray($addresses);
     }
 
+    public function testGetSenderAddressesDoesNotCrashInCliContextWithoutRequest(): void
+    {
+        // Regression test for issue #13: when the scheduler task runs via cron/CLI,
+        // no request is available and the Extbase ConfigurationManager throws
+        // "No request given. ConfigurationManager has not been initialized properly."
+        // The provider must degrade gracefully instead of crashing.
+        unset($GLOBALS['TYPO3_REQUEST']);
+
+        $addresses = $this->subject->getSenderAddresses();
+
+        self::assertIsArray($addresses);
+    }
+
     /**
      * Call the private extractSenderAddresses method via reflection
      *

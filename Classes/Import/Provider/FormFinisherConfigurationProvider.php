@@ -120,6 +120,39 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
     }
 
     /**
+     * Resolve the TypoScript settings for EXT:form (plugin.tx_form.settings).
+     *
+     * The Extbase ConfigurationManager requires an initialized request to resolve
+     * TypoScript. In a CLI/cron context — e.g. when the scheduler task
+     * "Mail Sender: Validate All Addresses" is executed from the command line —
+     * no request is available and getConfiguration() throws a
+     * NoServerRequestGivenException ("No request given. ConfigurationManager has
+     * not been initialized properly."). See issue #13.
+     *
+     * The form persistence manager only needs the resolved YAML configuration to
+     * locate form definitions; the TypoScript settings merely provide optional
+     * yamlSettingsOverrides. We therefore degrade gracefully to empty settings
+     * when no request is available, so validation still works from cron.
+     *
+     * @return array<string, mixed>
+     */
+    private function getFormTypoScriptSettings(): array
+    {
+        try {
+            $configurationManager = GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
+
+            return $configurationManager->getConfiguration(
+                ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
+                'form'
+            ) ?? [];
+        } catch (\Throwable) {
+            // No request available (CLI/cron context) – fall back to the base
+            // YAML configuration without TypoScript overrides.
+            return [];
+        }
+    }
+
+    /**
      * Load all form definitions using the TYPO3 v13+ API.
      *
      * In v13, listForms() requires YAML formSettings and load() requires
@@ -129,13 +162,9 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
      */
     private function loadAllFormDefinitionsV13(FormPersistenceManagerInterface $formPersistenceManager): array
     {
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
         $extFormConfigurationManager = GeneralUtility::makeInstance(ExtFormConfigurationManagerInterface::class);
 
-        $typoScriptSettings = $configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'form'
-        ) ?? [];
+        $typoScriptSettings = $this->getFormTypoScriptSettings();
 
         $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
 
@@ -167,13 +196,9 @@ class FormFinisherConfigurationProvider implements SenderAddressSourceProviderIn
      */
     private function loadAllFormDefinitionsV14(FormPersistenceManagerInterface $formPersistenceManager): array
     {
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManagerInterface::class);
         $extFormConfigurationManager = GeneralUtility::makeInstance(ExtFormConfigurationManagerInterface::class);
 
-        $typoScriptSettings = $configurationManager->getConfiguration(
-            ConfigurationManagerInterface::CONFIGURATION_TYPE_SETTINGS,
-            'form'
-        ) ?? [];
+        $typoScriptSettings = $this->getFormTypoScriptSettings();
 
         $formSettings = $extFormConfigurationManager->getYamlConfiguration($typoScriptSettings, false);
 
