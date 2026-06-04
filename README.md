@@ -61,8 +61,8 @@ Validation runs automatically and results are cached. Upload a test email (EML f
 
 ## Requirements
 
-- TYPO3 13.4 or later
-- PHP 8.1 or later
+- TYPO3 12.4, 13.4 or 14.3 (LTS)
+- PHP 8.1 or later (TYPO3 14 requires PHP 8.2+)
 - Optional: `mika56/spfcheck` for full SPF validation
 
 ## Installation

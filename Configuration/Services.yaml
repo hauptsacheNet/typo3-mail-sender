@@ -33,6 +33,15 @@ services:
     arguments:
       $sourceProviders: !tagged_iterator mail_sender.source_provider
 
+  # Form Finisher source provider. The FormPersistenceManager is an optional dependency
+  # (@? injects null when EXT:form is not installed) because the provider must also work
+  # without EXT:form, and because the interface is no longer publicly resolvable via
+  # makeInstance() on TYPO3 v14 - it must be injected. Public so functional tests can fetch it.
+  Hn\MailSender\Import\Provider\FormFinisherConfigurationProvider:
+    public: true
+    arguments:
+      $formPersistenceManager: '@?TYPO3\CMS\Form\Mvc\Persistence\FormPersistenceManagerInterface'
+
   # Backend Module Controller
   Hn\MailSender\Controller\MailSenderController:
     public: true

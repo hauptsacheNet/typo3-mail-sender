@@ -21,7 +21,9 @@ class FormFinisherConfigurationProviderTest extends AbstractFunctionalTest
     protected function setUp(): void
     {
         parent::setUp();
-        $this->subject = new FormFinisherConfigurationProvider();
+        // Fetch from the container so the FormPersistenceManager is injected. This is
+        // required on TYPO3 v14 where the manager is no longer resolvable via makeInstance().
+        $this->subject = $this->get(FormFinisherConfigurationProvider::class);
     }
 
     public function testGetNameReturnsExpectedValue(): void
