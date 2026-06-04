@@ -7,6 +7,7 @@ namespace Hn\MailSender\Controller;
 use Hn\MailSender\Service\SenderAddressImportService;
 use Hn\MailSender\Service\ValidationService;
 use Hn\MailSender\Service\WebhookNotificationService;
+use Hn\MailSender\Task\ValidateSenderAddressesTask;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\Mime\Address;
@@ -19,6 +20,7 @@ use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Imaging\IconSize;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Mail\MailMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
@@ -398,21 +400,47 @@ class MailSenderController
             return $info;
         }
 
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_scheduler_task');
-        $queryBuilder->getRestrictions()->removeAll();
+        // The scheduler task storage format changed in TYPO3 v14 (#106532): the task
+        // class is now stored in the "tasktype" column instead of being serialized into
+        // "serialized_task_object". Guard the whole lookup so a schema mismatch never
+        // breaks the backend module.
+        try {
+            $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_scheduler_task');
+            $queryBuilder->getRestrictions()->removeAll();
 
-        $task = $queryBuilder
-            ->select('*')
-            ->from('tx_scheduler_task')
-            ->where(
-                $queryBuilder->expr()->like(
-                    'serialized_task_object',
-                    $queryBuilder->createNamedParameter('%ValidateSenderAddressesTask%')
-                ),
-                $queryBuilder->expr()->eq('deleted', 0)
-            )
-            ->executeQuery()
-            ->fetchAssociative();
+            $queryBuilder
+                ->select('*')
+                ->from('tx_scheduler_task')
+                ->where($queryBuilder->expr()->eq('deleted', 0));
+
+            if ((new Typo3Version())->getMajorVersion() >= 14) {
+                // v14+: match the new "tasktype" column, but also fall back to legacy
+                // records that have not been migrated by the upgrade wizard yet.
+                $queryBuilder->andWhere(
+                    $queryBuilder->expr()->or(
+                        $queryBuilder->expr()->eq(
+                            'tasktype',
+                            $queryBuilder->createNamedParameter(ValidateSenderAddressesTask::class)
+                        ),
+                        $queryBuilder->expr()->like(
+                            'serialized_task_object',
+                            $queryBuilder->createNamedParameter('%ValidateSenderAddressesTask%')
+                        )
+                    )
+                );
+            } else {
+                $queryBuilder->andWhere(
+                    $queryBuilder->expr()->like(
+                        'serialized_task_object',
+                        $queryBuilder->createNamedParameter('%ValidateSenderAddressesTask%')
+                    )
+                );
+            }
+
+            $task = $queryBuilder->executeQuery()->fetchAssociative();
+        } catch (\Throwable $e) {
+            return $info;
+        }
 
         if ($task) {
             $info['configured'] = true;
