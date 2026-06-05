@@ -27,6 +27,7 @@
         "typo3/cms-form": "^12.4 || ^13.4 || ^14.3",
         "typo3/cms-install": "^12.4 || ^13.4 || ^14.3",
         "brianium/paratest": "^7.0",
+        "phpunit/phpunit": "<13.2.0",
         "typo3/tailor": "^1.0"
     },
     "conflict": {

@@ -242,7 +242,13 @@ LOCAL_WEB_URL="http://${LOCAL_WEB_HOST}:${LOCAL_WEB_PORT}"
 
 echo "Starting PHP built-in web server at ${LOCAL_WEB_URL}..."
 mkdir -p var/log
-php -S "${LOCAL_WEB_HOST}:${LOCAL_WEB_PORT}" -t public/ >"${ROOT_DIR}/var/log/typo3-e2e-web.log" 2>&1 &
+# The TYPO3 backend loads many JavaScript (ES module) and asset requests in
+# parallel. The PHP built-in web server is single-threaded by default, which
+# serializes those requests and, on slower (CI) machines, makes the backend
+# module content miss the test timeout. Spawn multiple worker processes so the
+# server can answer requests concurrently.
+PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-8}" \
+    php -S "${LOCAL_WEB_HOST}:${LOCAL_WEB_PORT}" -t public/ >"${ROOT_DIR}/var/log/typo3-e2e-web.log" 2>&1 &
 LOCAL_WEB_PID=$!
 
 echo "Waiting for TYPO3..."

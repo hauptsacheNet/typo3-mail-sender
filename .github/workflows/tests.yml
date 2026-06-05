@@ -61,10 +61,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # PHP 8.4 is used for the e2e suite (supported by TYPO3 12.4/13.4/14.3).
+      # The PHP built-in web server used here misroutes some TYPO3 v14 backend
+      # module requests on PHP 8.3 (an environment quirk unrelated to the
+      # extension); 8.4 serves them reliably. Real deployments use php-fpm.
+      # PHP-version compatibility of the code itself is covered by functional-tests.
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: sqlite3, pdo_sqlite, intl
           coverage: none
 
