@@ -242,13 +242,19 @@ LOCAL_WEB_URL="http://${LOCAL_WEB_HOST}:${LOCAL_WEB_PORT}"
 
 echo "Starting PHP built-in web server at ${LOCAL_WEB_URL}..."
 mkdir -p var/log
-# The TYPO3 backend loads many JavaScript (ES module) and asset requests in
-# parallel. The PHP built-in web server is single-threaded by default, which
-# serializes those requests and, on slower (CI) machines, makes the backend
-# module content miss the test timeout. Spawn multiple worker processes so the
-# server can answer requests concurrently.
-PHP_CLI_SERVER_WORKERS="${PHP_CLI_SERVER_WORKERS:-8}" \
-    php -S "${LOCAL_WEB_HOST}:${LOCAL_WEB_PORT}" -t public/ >"${ROOT_DIR}/var/log/typo3-e2e-web.log" 2>&1 &
+# The PHP built-in web server is single-threaded and runs with OPcache disabled
+# by default, so it otherwise recompiles the whole TYPO3 codebase on every
+# request. On slower (CI) machines that makes the backend module content miss
+# the test timeout. Enabling OPcache lets the single process serve requests
+# quickly once the codebase is compiled on the first request(s). A single
+# (warmed) process is also more reliable here than multiple worker processes,
+# which would each cold-start the framework on their first request.
+php \
+    -d opcache.enable_cli=1 \
+    -d opcache.memory_consumption=256 \
+    -d opcache.max_accelerated_files=30000 \
+    -d opcache.validate_timestamps=0 \
+    -S "${LOCAL_WEB_HOST}:${LOCAL_WEB_PORT}" -t public/ >"${ROOT_DIR}/var/log/typo3-e2e-web.log" 2>&1 &
 LOCAL_WEB_PID=$!
 
 echo "Waiting for TYPO3..."

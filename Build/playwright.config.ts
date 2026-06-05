@@ -3,8 +3,10 @@ import config from './tests/playwright/config';
 
 export default defineConfig({
   testDir: './tests/playwright',
-  timeout: 60000,
-  expect: { timeout: 15000 },
+  // Generous timeouts: the first requests served by the PHP built-in server
+  // compile the TYPO3 codebase into OPcache, which is slow on CI runners.
+  timeout: 90000,
+  expect: { timeout: 25000 },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
