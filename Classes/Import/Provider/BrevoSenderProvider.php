@@ -6,10 +6,11 @@ namespace Hn\MailSender\Import\Provider;
 
 use Hn\MailSender\Import\SenderAddressSourceProviderInterface;
 use Hn\MailSender\Import\ValueObject\SenderAddress;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
+use TYPO3\CMS\Backend\Module\ModuleInterface;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
-use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Http\RequestFactory;
 
 /**
@@ -73,8 +74,9 @@ class BrevoSenderProvider implements SenderAddressSourceProviderInterface
         // Include the key in the cache identifier so switching keys (e.g. a
         // different Brevo account) never serves senders from the previous one.
         $cacheIdentifier = 'brevo_senders_' . sha1($apiKey);
+        $cache = $this->cacheManager->getCache(self::CACHE_IDENTIFIER);
 
-        $cached = $this->readCache($cacheIdentifier);
+        $cached = $cache->get($cacheIdentifier);
         if (is_array($cached)) {
             return $this->mapToSenderAddresses($cached);
         }
@@ -83,7 +85,7 @@ class BrevoSenderProvider implements SenderAddressSourceProviderInterface
 
         // Cache even an empty result so a misconfigured key or transient outage
         // does not trigger a fresh API call on every backend page view.
-        $this->writeCache($cacheIdentifier, $senders);
+        $cache->set($cacheIdentifier, $senders, [], self::CACHE_LIFETIME);
 
         return $this->mapToSenderAddresses($senders);
     }
@@ -100,32 +102,6 @@ class BrevoSenderProvider implements SenderAddressSourceProviderInterface
         } catch (\Throwable) {
             // Extension not configured yet / path missing.
             return '';
-        }
-    }
-
-    /**
-     * @return array<int, array{email: string, name: string}>|null Cached senders, or null on miss/error
-     */
-    private function readCache(string $identifier): ?array
-    {
-        try {
-            $value = $this->cacheManager->getCache(self::CACHE_IDENTIFIER)->get($identifier);
-            return is_array($value) ? $value : null;
-        } catch (\Throwable) {
-            // Cache unavailable (not registered, backend error, ...): treat as a miss.
-            return null;
-        }
-    }
-
-    /**
-     * @param array<int, array{email: string, name: string}> $senders
-     */
-    private function writeCache(string $identifier, array $senders): void
-    {
-        try {
-            $this->cacheManager->getCache(self::CACHE_IDENTIFIER)->set($identifier, $senders, [], self::CACHE_LIFETIME);
-        } catch (\Throwable) {
-            // Caching is best-effort: never let a cache failure break sender import.
         }
     }
 
@@ -186,22 +162,32 @@ class BrevoSenderProvider implements SenderAddressSourceProviderInterface
     }
 
     /**
-     * Use a shorter timeout in interactive contexts (e.g. the backend module) and a
-     * longer one in non-interactive ones (scheduler/CLI cron), where completeness
-     * matters more than latency.
-     *
-     * Environment::isCli() is the idiomatic check and is always initialized at TYPO3
-     * runtime; it is guarded so a non-initialized environment can never break the import.
+     * Use a shorter timeout in the interactive backend module, where a user waits
+     * for the page to render, and a longer one when sender detection runs from the
+     * scheduler.
      */
     private function getRequestTimeout(): int
     {
-        try {
-            $isCli = Environment::isCli();
-        } catch (\Throwable) {
-            $isCli = PHP_SAPI === 'cli';
+        return $this->isSchedulerContext() ? self::TIMEOUT_BACKGROUND : self::TIMEOUT_INTERACTIVE;
+    }
+
+    /**
+     * Whether sender detection is currently triggered by the scheduler, either via
+     * cron (CLI) or run manually from the scheduler backend module. Running a task
+     * from the browser must not shorten the timeout.
+     */
+    private function isSchedulerContext(): bool
+    {
+        // Cron: `typo3 scheduler:run`.
+        if (PHP_SAPI === 'cli') {
+            return true;
         }
 
-        return $isCli ? self::TIMEOUT_BACKGROUND : self::TIMEOUT_INTERACTIVE;
+        // Manual execution via the scheduler backend module.
+        $request = $GLOBALS['TYPO3_REQUEST'] ?? null;
+        $module = $request instanceof ServerRequestInterface ? $request->getAttribute('module') : null;
+
+        return $module instanceof ModuleInterface && $module->getIdentifier() === 'scheduler';
     }
 
     /**

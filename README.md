@@ -126,9 +126,6 @@ Notes:
 - Only **active** Brevo senders are imported. The import is additive: senders
   that are later deactivated or removed in Brevo are **not** automatically
   disabled or deleted locally.
-- The API response is cached for 60 seconds (in the *system* cache group), which
-  also rate-limits the API. Flushing the system caches forces an immediate
-  refresh.
 
 > **More providers welcome.** The importer is built around a simple provider
 > interface (`SenderAddressSourceProviderInterface`). If you use another email
