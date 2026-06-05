@@ -46,3 +46,55 @@ jobs:
 
       - name: Run functional test suite
         run: composer test
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        typo3-version: ['12.4', '13.4', '14.3']
+
+    name: E2E TYPO3 ${{ matrix.typo3-version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # PHP 8.4 is used for the e2e suite (supported by TYPO3 12.4/13.4/14.3).
+      # The PHP built-in web server used here misroutes some TYPO3 v14 backend
+      # module requests on PHP 8.3 (an environment quirk unrelated to the
+      # extension); 8.4 serves them reliably. Real deployments use php-fpm.
+      # PHP-version compatibility of the code itself is covered by functional-tests.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: sqlite3, pdo_sqlite, intl
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: Build/package-lock.json
+
+      - name: Install Playwright (npm + browser with system deps)
+        working-directory: Build
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E test suite
+        run: bash Build/runTests.sh -s e2e -t ${{ matrix.typo3-version }} --no-docker
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-typo3-${{ matrix.typo3-version }}
+          path: |
+            Build/playwright-report
+            Build/test-results
+          retention-days: 7
