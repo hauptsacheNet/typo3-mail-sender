@@ -1,0 +1,2 @@
+# cat=brevo; type=string; label=Brevo API key: Paste a Brevo v3 API key (starts with "xkeysib-") to automatically import your verified Brevo senders whenever sender detection runs. Only active senders are imported. Leave empty to disable.
+brevoApiKey =

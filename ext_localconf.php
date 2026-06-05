@@ -34,3 +34,14 @@ $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['scheduler']['tasks'][
     'title' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang.xlf:scheduler.task.title',
     'description' => 'LLL:EXT:mail_sender/Resources/Private/Language/locallang.xlf:scheduler.task.description',
 ];
+
+// Short-lived cache used to rate-limit external sender imports (e.g. the Brevo API).
+// Assigned to the "system" group so flushing the system caches forces a refresh.
+// Individual entries additionally expire after their configured lifetime.
+if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['mailsender'])) {
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['mailsender'] = [
+        'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+        'backend' => \TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend::class,
+        'groups' => ['all', 'system'],
+    ];
+}

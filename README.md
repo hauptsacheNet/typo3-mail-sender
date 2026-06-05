@@ -100,6 +100,42 @@ vendor/bin/typo3 mail:sender:validate --email=info@example.com
 
 The extension provides a `SenderEmailAddress` form element that shows a dropdown of validated sender addresses instead of a freetext field.
 
+### Importing senders from external providers
+
+Sender addresses are auto-detected from several sources whenever sender
+detection runs (when you open the backend module and during the scheduler
+task). Out of the box this includes the TYPO3 default mail configuration and
+the sender addresses configured in ext:form finishers.
+
+#### Brevo
+
+If you send through [Brevo](https://www.brevo.com/), the extension can import
+your verified senders automatically:
+
+1. Create a Brevo **v3 API key** (Settings → SMTP & API → API keys, starts with
+   `xkeysib-`). This is **not** the same as your SMTP key.
+2. Open the extension configuration (Admin Tools → Settings → Extension
+   Configuration → `mail_sender`) and paste the key into **Brevo API key**.
+
+From then on, sender detection pulls the list from
+`https://api.brevo.com/v3/senders` and imports the **active** senders. Leave the
+field empty to disable the import.
+
+Notes:
+
+- Only **active** Brevo senders are imported. The import is additive: senders
+  that are later deactivated or removed in Brevo are **not** automatically
+  disabled or deleted locally.
+- The API response is cached for 60 seconds (in the *system* cache group), which
+  also rate-limits the API. Flushing the system caches forces an immediate
+  refresh.
+
+> **More providers welcome.** The importer is built around a simple provider
+> interface (`SenderAddressSourceProviderInterface`). If you use another email
+> service provider that exposes its senders via an API — or send via SMTP and
+> would like that detected — please open an issue or a pull request; additional
+> providers are easy to add.
+
 ## Development
 
 ### Running Tests
@@ -168,6 +204,7 @@ Complete email validation system with DNS checks, SPF/DKIM/DMARC analysis, and s
 
 ### Phase 4: Polish & Import 🔄
 - ✅ Import from `$GLOBALS['TYPO3_CONF_VARS']['MAIL']`
+- ✅ Import from Brevo (Email Service Provider) API
 - 📋 Import from TypoScript configurations
 - 📋 Reference tracking (where sender addresses are used)
 - 📋 TER release
